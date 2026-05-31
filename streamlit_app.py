@@ -383,12 +383,11 @@ def ensure_stop_collection_server() -> bool:
 def render_stop_collection_button() -> None:
     server_ready = ensure_stop_collection_server()
     disabled_attr = "" if server_ready else "disabled"
-    status_text = "采集中可点击，当前页面/小类结束后停止" if server_ready else "停止接口未启动，可使用停止采集.bat"
     components.html(
         f"""
         <button id="stop-collection-btn" {disabled_attr} style="
             width: 100%;
-            height: 42px;
+            height: 40px;
             border: 1px solid #ff4b4b;
             border-radius: 8px;
             background: #fff;
@@ -397,30 +396,23 @@ def render_stop_collection_button() -> None:
             font-weight: 600;
             cursor: pointer;
         ">停止采集</button>
-        <div id="stop-collection-status" style="
-            margin-top: 6px;
-            color: #8b949e;
-            font-size: 12px;
-            line-height: 1.35;
-        ">{status_text}</div>
         <script>
         const btn = document.getElementById("stop-collection-btn");
-        const status = document.getElementById("stop-collection-status");
         if (btn) {{
           btn.addEventListener("click", async () => {{
             btn.disabled = true;
-            status.textContent = "正在请求停止...";
+            btn.textContent = "停止中...";
             try {{
               const res = await fetch("http://127.0.0.1:{STOP_COLLECTION_PORT}/stop", {{ method: "POST" }});
-              status.textContent = res.ok ? "已请求停止：程序会在当前页面/小类结束后保留数据并停止。" : "停止请求失败，请使用 停止采集.bat。";
+              btn.textContent = res.ok ? "已请求停止" : "停止失败";
             }} catch (error) {{
-              status.textContent = "停止请求失败，请使用 停止采集.bat。";
+              btn.textContent = "停止失败";
             }}
           }});
         }}
         </script>
         """,
-        height=78,
+        height=44,
     )
 
 
@@ -1080,6 +1072,24 @@ def render_range_filter(title: str, key_prefix: str, min_default: str = "", max_
     if money:
         st.markdown("<div class='filter-money-hint'>$</div>", unsafe_allow_html=True)
     return min_value, max_value
+
+
+def reset_filter_widgets() -> None:
+    defaults = {
+        "filter_price_min": "24.99",
+        "filter_price_max": "200.00",
+        "filter_reviews_min": "",
+        "filter_reviews_max": "300",
+        "filter_monthly_sales_min": "100",
+        "filter_monthly_sales_max": "",
+        "filter_child_sales_min": "",
+        "filter_child_sales_max": "",
+        "filter_bsr_min": "",
+        "filter_bsr_max": "",
+        "filter_launch_window": "不限" if st.session_state.get("ui_lang", "中文") == "中文" else "Any",
+    }
+    for key, value in defaults.items():
+        st.session_state[key] = value
 
 
 def fake_image(seed: str) -> str:
@@ -2160,6 +2170,16 @@ st.markdown(
         display: inline-flex;
         justify-content: center;
     }
+    div[data-testid="stElementContainer"]:has(.collection-action-toolbar) + div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
+        min-height: 40px;
+        height: 40px;
+        border-radius: 8px;
+        font-size: 14px;
+        padding: 0 14px;
+    }
+    div[data-testid="stElementContainer"]:has(.collection-action-toolbar) + div[data-testid="stHorizontalBlock"] iframe {
+        min-height: 44px;
+    }
     .filter-label {
         color: #5f6673;
         font-size: 17px;
@@ -2923,7 +2943,7 @@ with st.container(border=True):
     with filter_bottom[2]:
         st.markdown(f"<div class='filter-label'>{escape(T['launched_at'])} <span>?</span></div>", unsafe_allow_html=True)
         launch_options = ["不限", "近30天", "近60天", "近3个月", "近半年", "近1年", "近2年", "近1~2年"] if UI_LANG == "中文" else ["Any", "Last 30 days", "Last 60 days", "Last 3 months", "Last 6 months", "Last year", "Last 2 years", "1-2 years"]
-        launch_window = st.selectbox("上架时间", launch_options, label_visibility="collapsed")
+        launch_window = st.selectbox("上架时间", launch_options, key="filter_launch_window", label_visibility="collapsed")
     current_filters = {
         "min_price": parse_filter_number(min_price_raw, 0.0),
         "max_price": parse_filter_number(max_price_raw, 999999.0),
@@ -2938,13 +2958,15 @@ with st.container(border=True):
         "launch_window": launch_window,
     }
 
-    action_cols = st.columns([1.25, 1.25, 1.25, 1.25], vertical_alignment="center")
+    st.markdown("<div class='collection-action-toolbar'></div>", unsafe_allow_html=True)
+    action_cols = st.columns([1.05, 1.05, 1.05, 1.05, 1.2], vertical_alignment="center")
     seller_cache_can_run = data_source != "卖家精灵插件" or chrome_ready
     run = action_cols[0].button(T["run"], type="primary", use_container_width=True, disabled=not seller_cache_can_run)
-    apply_filter = action_cols[1].button("应用筛选", use_container_width=True, disabled=not st.session_state.raw_products)
-    load_last_raw = action_cols[2].button("载入上次采集", use_container_width=True)
-    clear = action_cols[3].button(T["clear"], use_container_width=True)
-    render_stop_collection_button()
+    with action_cols[1]:
+        render_stop_collection_button()
+    apply_filter = action_cols[2].button("应用筛选", use_container_width=True, disabled=not st.session_state.raw_products)
+    clear_filters = action_cols[3].button("清空筛选", use_container_width=True, on_click=reset_filter_widgets)
+    load_last_raw = action_cols[4].button("载入上次采集", use_container_width=True)
 
     raw_count = len(st.session_state.raw_products)
     filtered_count = len(st.session_state.products)
@@ -2953,13 +2975,9 @@ with st.container(border=True):
     if st.session_state.last_raw_products_message:
         st.info(st.session_state.last_raw_products_message)
 
-if clear:
-    st.session_state.raw_products = []
-    st.session_state.products = []
-    st.session_state.run_log = ["Results cleared."]
-    st.session_state.last_collection_summary = ""
-    st.session_state.last_raw_products_message = ""
-    st.session_state.last_category_mapping_message = ""
+if clear_filters and st.session_state.raw_products:
+    apply_filters_to_raw_pool(current_filters)
+    log("Filter widgets reset and filters re-applied to raw product pool.")
 
 if load_last_raw:
     loaded_products, message = load_raw_products()
