@@ -1582,15 +1582,15 @@ def render_category_dialog():
                 del st.session_state[key]
         st.session_state.category_clear_requested = False
 
-    left_panel, right_panel = st.columns([0.50, 0.50], gap="large", vertical_alignment="top")
+    left_panel, right_panel = st.columns([0.58, 0.42], gap="medium", vertical_alignment="top")
     with left_panel:
         query = st.text_input(
             "搜索类目",
             key="category_search",
-            placeholder="请输入 Node ID/类目关键词，如281407/Electronics",
+            placeholder="请输入 Node ID / 类目关键词",
             label_visibility="collapsed",
         ).strip().lower()
-        with st.container(height=365, border=False):
+        with st.container(height=300, border=False):
             selected_paths = render_category_tree(query)
     with right_panel:
         title_col, clear_col = st.columns([0.72, 0.28], vertical_alignment="center")
@@ -1607,7 +1607,7 @@ def render_category_dialog():
             st.session_state.category_clear_requested = True
             st.rerun()
     st.markdown("<span class='category-footer-anchor'></span>", unsafe_allow_html=True)
-    spacer_left, cancel_col, spacer_mid, confirm_col = st.columns([0.76, 0.10, 0.02, 0.12])
+    spacer_left, cancel_col, spacer_mid, confirm_col = st.columns([0.56, 0.18, 0.02, 0.24])
     if cancel_col.button("取消", use_container_width=True):
         st.session_state.show_category_dialog = False
         st.rerun()
@@ -2319,17 +2319,17 @@ st.markdown(
     }
     div[data-testid="stDialog"] [role="dialog"] {
         border-radius: 4px !important;
-        height: min(72vh, 680px) !important;
-        max-height: calc(100vh - 56px) !important;
+        height: min(70vh, 660px) !important;
+        max-height: calc(100vh - 48px) !important;
         display: flex !important;
         flex-direction: column !important;
         overflow: hidden !important;
-        width: min(78vw, 1240px) !important;
+        width: min(92vw, 1320px) !important;
     }
     div[data-testid="stDialog"] section {
         height: 100% !important;
         padding-bottom: 0 !important;
-        max-height: calc(100vh - 72px) !important;
+        max-height: calc(100vh - 56px) !important;
         overflow: hidden !important;
     }
     div[data-testid="stDialog"] section > div {
@@ -2337,7 +2337,7 @@ st.markdown(
         overflow: hidden !important;
     }
     div[data-testid="stDialog"] div[data-testid="stVerticalBlock"] {
-        gap: 0.55rem;
+        gap: 0.38rem;
     }
     div[data-testid="stDialog"] input {
         background: #ffffff !important;
@@ -2379,21 +2379,21 @@ st.markdown(
     }
     .category-tree-label {
         color: #4b5563;
-        font-size: 15px;
-        line-height: 32px;
+        font-size: 14px;
+        line-height: 30px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
     .category-tree-indent {
         display: block;
-        height: 32px;
+        height: 30px;
         position: relative;
     }
     .category-tree-indent::after {
         background: #edf0f5;
         content: "";
-        height: 32px;
+        height: 30px;
         position: absolute;
         right: 8px;
         top: 0;
@@ -2401,7 +2401,7 @@ st.markdown(
     }
     .category-tree-root-indent {
         display: block;
-        height: 32px;
+        height: 30px;
         width: 1px;
     }
     .category-count-badge {
@@ -2410,15 +2410,15 @@ st.markdown(
         color: #ff991f;
         display: inline-block;
         float: right;
-        font-size: 14px;
-        line-height: 26px;
-        min-width: 54px;
-        padding: 0 7px;
+        font-size: 13px;
+        line-height: 24px;
+        min-width: 44px;
+        padding: 0 6px;
         text-align: center;
     }
     .category-tree-spacer {
         display: inline-block;
-        height: 32px;
+        height: 30px;
         width: 100%;
     }
     .category-dialog-body {
@@ -2429,16 +2429,16 @@ st.markdown(
     }
     .category-selected-title {
         color: #2f3642;
-        font-size: 20px;
+        font-size: 18px;
         font-weight: 700;
         margin: 0;
-        line-height: 48px;
+        line-height: 42px;
     }
     .category-selected-panel {
         background: #ffffff;
         border: 1px solid #e7ebf1;
         border-radius: 6px;
-        max-height: min(44vh, 420px);
+        max-height: min(48vh, 470px);
         min-height: 92px;
         overflow-y: auto;
         padding: 12px;
@@ -2461,20 +2461,20 @@ st.markdown(
         z-index: 10;
     }
     div[data-testid="stDialog"] div[data-testid="stElementContainer"]:has(.category-footer-anchor) {
-        margin-top: auto !important;
-        padding-top: 10px !important;
+        margin-top: 6px !important;
+        padding-top: 6px !important;
         border-top: 1px solid #e7ebf1 !important;
     }
     div[data-testid="stDialog"] div[data-testid="stElementContainer"]:has(.category-footer-anchor) + div[data-testid="stHorizontalBlock"] {
         background: #ffffff !important;
-        padding: 0 0 10px !important;
+        padding: 0 !important;
         position: sticky !important;
         bottom: 0 !important;
         z-index: 20 !important;
     }
     div[data-testid="stDialog"] div[data-testid="stElementContainer"]:has(.category-footer-anchor) + div[data-testid="stHorizontalBlock"] button {
-        min-height: 40px !important;
-        height: 40px !important;
+        min-height: 34px !important;
+        height: 34px !important;
         border-radius: 4px !important;
         font-size: 14px !important;
     }
@@ -2996,16 +2996,9 @@ if st.session_state.show_category_dialog:
     render_category_dialog()
 
 with st.container(border=True):
-    top_cols = st.columns([1.15, 1.0], vertical_alignment="bottom")
-    with top_cols[0]:
+    setup_left, setup_right = st.columns([1, 1], vertical_alignment="top")
+    with setup_left:
         list_type = st.radio(T["list_type"], ["New Releases", "Best Sellers"], horizontal=True)
-    with top_cols[1]:
-        data_source = "卖家精灵插件"
-        st.write("**数据源**")
-        st.markdown("<div class='source-static'>卖家精灵插件</div>", unsafe_allow_html=True)
-
-    category_cols = st.columns([1.1, 1.45], vertical_alignment="bottom")
-    with category_cols[0]:
         st.write(f"**{T['categories']}**")
         if st.button(
             f"选择类目（已选 {len(st.session_state.confirmed_category_paths)}）",
@@ -3013,7 +3006,10 @@ with st.container(border=True):
         ):
             st.session_state.show_category_dialog = True
             st.rerun()
-    with category_cols[1]:
+    with setup_right:
+        data_source = "卖家精灵插件"
+        st.write("**数据源**")
+        st.markdown("<div class='source-static'>卖家精灵插件</div>", unsafe_allow_html=True)
         custom_url = st.text_input(T["custom_url"], placeholder="https://www.amazon.com/...")
         batch_category_collect = st.checkbox("大类批量采集", value=False, help="打开当前大类页，自动发现小类链接，并逐个采集合格产品。")
 
