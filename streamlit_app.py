@@ -1050,6 +1050,7 @@ def filter_rejection_summary(products: list[Product], filters: dict) -> list[str
 
 def render_range_filter(title: str, key_prefix: str, min_default: str = "", max_default: str = "", money: bool = False):
     st.markdown(f"<div class='filter-label'>{escape(title)} <span>?</span></div>", unsafe_allow_html=True)
+    st.markdown("<div class='range-filter-anchor'></div>", unsafe_allow_html=True)
     cols = st.columns([1, 0.18, 1], vertical_alignment="center")
     with cols[0]:
         min_value = st.text_input(
@@ -1076,11 +1077,11 @@ def render_range_filter(title: str, key_prefix: str, min_default: str = "", max_
 
 def reset_filter_widgets() -> None:
     defaults = {
-        "filter_price_min": "24.99",
-        "filter_price_max": "200.00",
+        "filter_price_min": "",
+        "filter_price_max": "",
         "filter_reviews_min": "",
-        "filter_reviews_max": "300",
-        "filter_monthly_sales_min": "100",
+        "filter_reviews_max": "",
+        "filter_monthly_sales_min": "",
         "filter_monthly_sales_max": "",
         "filter_child_sales_min": "",
         "filter_child_sales_max": "",
@@ -2108,11 +2109,22 @@ st.markdown(
         background: transparent;
     }
     .block-container {
-        padding-top: 1.2rem;
-        padding-left: 1.5rem;
-        padding-right: 1.5rem;
+        padding-top: 1rem;
+        padding-left: 1.25rem;
+        padding-right: 1.25rem;
         max-width: none;
         background: transparent;
+    }
+    h1 {
+        color: #222733;
+        font-size: clamp(30px, 3.4vw, 46px) !important;
+        letter-spacing: 0 !important;
+        line-height: 1.08 !important;
+        margin-bottom: 8px !important;
+    }
+    div[data-testid="stCaptionContainer"] {
+        color: #8b94a3;
+        font-size: 14px;
     }
     html:has(div[data-testid="stDialog"]),
     body:has(div[data-testid="stDialog"]) {
@@ -2135,6 +2147,7 @@ st.markdown(
         border: 1px solid #e7ebf1;
         border-radius: 6px;
         box-shadow: 0 1px 2px rgba(15, 23, 42, .03);
+        padding: 8px 10px 10px;
     }
     div[data-testid="stMetric"] {
         background: #ffffff;
@@ -2142,6 +2155,14 @@ st.markdown(
         border-radius: 6px;
         box-shadow: 0 1px 2px rgba(15, 23, 42, .025);
         padding: 10px 12px;
+    }
+    div[data-testid="stMetric"] label {
+        color: #7b8491 !important;
+        font-size: 13px !important;
+    }
+    div[data-testid="stMetric"] [data-testid="stMetricValue"] {
+        color: #2b303b;
+        font-size: 28px;
     }
     div[data-testid="stTabs"] {
         background: transparent;
@@ -2163,7 +2184,7 @@ st.markdown(
     div[data-testid="stNumberInput"] input,
     div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
     div[data-testid="stButton"] button {
-        min-height: 48px;
+        min-height: 42px;
     }
     div[data-testid="stButton"] button {
         align-items: center;
@@ -2177,14 +2198,28 @@ st.markdown(
         font-size: 14px;
         padding: 0 14px;
     }
+    div[data-testid="stElementContainer"]:has(.collection-action-toolbar) + div[data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap !important;
+        gap: 8px !important;
+        overflow-x: auto;
+        padding-bottom: 2px;
+    }
+    div[data-testid="stElementContainer"]:has(.collection-action-toolbar) + div[data-testid="stHorizontalBlock"] > div {
+        flex: 0 0 118px !important;
+        min-width: 118px !important;
+    }
+    div[data-testid="stElementContainer"]:has(.collection-action-toolbar) + div[data-testid="stHorizontalBlock"] > div:last-child {
+        flex-basis: 140px !important;
+        min-width: 140px !important;
+    }
     div[data-testid="stElementContainer"]:has(.collection-action-toolbar) + div[data-testid="stHorizontalBlock"] iframe {
         min-height: 44px;
     }
     .filter-label {
         color: #5f6673;
-        font-size: 17px;
+        font-size: 15px;
         font-weight: 700;
-        margin: 8px 0 10px;
+        margin: 6px 0 8px;
     }
     .filter-label span {
         align-items: center;
@@ -2203,8 +2238,35 @@ st.markdown(
         color: #b8bfca;
         font-size: 18px;
         font-weight: 700;
-        line-height: 48px;
+        line-height: 42px;
         text-align: center;
+    }
+    div[data-testid="stElementContainer"]:has(.range-filter-anchor) + div[data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap !important;
+        gap: 8px !important;
+        overflow-x: auto;
+        padding-bottom: 2px;
+    }
+    div[data-testid="stColumn"] div[data-testid="stVerticalBlock"]:has(.range-filter-anchor) div[data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap !important;
+        gap: 8px !important;
+        overflow-x: auto;
+        padding-bottom: 2px;
+    }
+    div[data-testid="stElementContainer"]:has(.range-filter-anchor) + div[data-testid="stHorizontalBlock"] > div:nth-child(1),
+    div[data-testid="stElementContainer"]:has(.range-filter-anchor) + div[data-testid="stHorizontalBlock"] > div:nth-child(3),
+    div[data-testid="stColumn"] div[data-testid="stVerticalBlock"]:has(.range-filter-anchor) div[data-testid="stHorizontalBlock"] > div:nth-child(1),
+    div[data-testid="stColumn"] div[data-testid="stVerticalBlock"]:has(.range-filter-anchor) div[data-testid="stHorizontalBlock"] > div:nth-child(3) {
+        flex: 1 0 132px !important;
+        min-width: 132px !important;
+    }
+    div[data-testid="stElementContainer"]:has(.range-filter-anchor) + div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
+        flex: 0 0 24px !important;
+        min-width: 24px !important;
+    }
+    div[data-testid="stColumn"] div[data-testid="stVerticalBlock"]:has(.range-filter-anchor) div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
+        flex: 0 0 24px !important;
+        min-width: 24px !important;
     }
     .filter-money-hint {
         display: none;
@@ -2218,7 +2280,7 @@ st.markdown(
         display: flex;
         font-size: 15px;
         font-weight: 600;
-        min-height: 48px;
+        min-height: 42px;
         padding: 0 14px;
     }
     div[data-testid="stRadio"] > label,
@@ -2481,6 +2543,11 @@ st.markdown(
         padding: 4px 8px;
         margin: 2px 4px 2px 0;
         font-size: 12px;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        vertical-align: middle;
+        white-space: nowrap;
     }
     .product-row-gap {
         height: 14px;
@@ -2493,7 +2560,7 @@ st.markdown(
     .toolbar-meta {
         color: #7a8491;
         font-size: 14px;
-        line-height: 38px;
+        line-height: 40px;
         white-space: nowrap;
     }
     .toolbar-meta strong {
@@ -2506,7 +2573,7 @@ st.markdown(
         background: #f1f3f6;
         border-radius: 4px;
         overflow-x: auto;
-        padding: 0 0 8px;
+        padding: 0 0 6px;
         position: relative;
         scrollbar-gutter: auto;
     }
@@ -2518,7 +2585,7 @@ st.markdown(
         border-radius: 999px;
     }
     .seller-row-space {
-        height: 8px;
+        height: 10px;
     }
     .seller-select-header {
         background: transparent;
@@ -2527,7 +2594,7 @@ st.markdown(
         border-left: 0;
         border-right: 0;
         box-shadow: none;
-        min-height: 66px;
+        min-height: 58px;
         position: sticky;
         top: 0;
         z-index: 20;
@@ -2538,26 +2605,26 @@ st.markdown(
         border: 0;
         border-radius: 0;
         display: flex;
-        min-height: 198px;
-        padding: 22px 0 0 0;
+        min-height: 178px;
+        padding: 18px 0 0 0;
         justify-content: center;
     }
     .seller-header {
         display: grid;
-        grid-template-columns: 32px 270px 58px 100px 72px 82px 88px 48px 66px 68px 54px 62px 74px 58px 34px;
+        grid-template-columns: 30px 254px 56px 92px 68px 78px 82px 46px 62px 64px 52px 58px 70px 56px 32px;
         align-items: center;
-        gap: 8px;
-        min-width: 1260px;
-        width: max(100%, 1260px);
+        gap: 7px;
+        min-width: 1190px;
+        width: max(100%, 1190px);
         background: #f6f7f9;
         border: 1px solid #eef0f4;
         border-left: 0;
         border-right: 0;
         color: #6f7782;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 700;
-        min-height: 66px;
-        padding: 10px 12px;
+        min-height: 58px;
+        padding: 8px 10px;
         position: sticky;
         top: 0;
         z-index: 20;
@@ -2569,16 +2636,16 @@ st.markdown(
         margin-left: 8px;
     }
     .seller-header > div:nth-child(2) {
-        padding-left: 104px;
+        padding-left: 96px;
     }
     .seller-row {
-        min-width: 1260px;
-        width: max(100%, 1260px);
+        min-width: 1190px;
+        width: max(100%, 1190px);
         background: #ffffff;
         border: 1px solid #e8edf3;
         border-radius: 3px;
         box-shadow: 0 1px 1px rgba(15, 23, 42, .02);
-        padding: 14px 12px 10px;
+        padding: 12px 10px 9px;
         transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
     }
     .seller-row:hover {
@@ -2587,9 +2654,9 @@ st.markdown(
     }
     .seller-main {
         display: grid;
-        grid-template-columns: 32px 270px 58px 100px 72px 82px 88px 48px 66px 68px 54px 62px 74px 58px 34px;
+        grid-template-columns: 30px 254px 56px 92px 68px 78px 82px 46px 62px 64px 52px 58px 70px 56px 32px;
         align-items: center;
-        gap: 8px;
+        gap: 7px;
     }
     .seller-rank {
         color: #a6aeb9;
@@ -2598,18 +2665,18 @@ st.markdown(
     }
     .seller-product {
         display: grid;
-        grid-template-columns: 96px minmax(0, 1fr);
-        gap: 14px;
+        grid-template-columns: 88px minmax(0, 1fr);
+        gap: 12px;
         align-items: center;
     }
     .seller-image-wrap {
         position: relative;
-        width: 96px;
-        min-height: 116px;
+        width: 88px;
+        min-height: 106px;
     }
     .seller-image-wrap img {
-        width: 92px;
-        height: 92px;
+        width: 84px;
+        height: 84px;
         object-fit: contain;
         margin-top: 22px;
     }
@@ -2618,7 +2685,7 @@ st.markdown(
     }
     .seller-title {
         color: #111827;
-        font-size: 15px;
+        font-size: 14px;
         font-weight: 500;
         line-height: 1.3;
         overflow: hidden;
@@ -2628,7 +2695,7 @@ st.markdown(
     }
     .cell {
         color: #151a24;
-        font-size: 13px;
+        font-size: 12px;
         line-height: 1.55;
         text-align: center;
     }
@@ -2661,7 +2728,7 @@ st.markdown(
         color: #7a828e;
         font-size: 13px;
         line-height: 1.75;
-        margin: 10px 0 0 32px;
+        margin: 9px 0 0 30px;
         padding: 8px 0 0 0;
     }
     .orange {
@@ -2674,8 +2741,8 @@ st.markdown(
         font-size: 13px;
         font-weight: 600;
         line-height: 1;
-        margin-left: 7px;
-        padding: 5px 10px;
+        margin-left: 6px;
+        padding: 4px 8px;
     }
     .orange-pill { background: #ff8617; }
     .blue-pill { background: #4b6ff3; }
@@ -2854,6 +2921,49 @@ st.markdown(
         white-space: normal;
         line-height: 1.35;
     }
+    @media (max-width: 760px) {
+        .block-container {
+            padding-left: 0.85rem;
+            padding-right: 0.85rem;
+        }
+        h1 {
+            font-size: 32px !important;
+            max-width: 12em;
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            padding: 6px;
+        }
+        .filter-label {
+            font-size: 14px;
+        }
+        .source-static,
+        div[data-testid="stTextInput"] input,
+        div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+        div[data-testid="stButton"] button {
+            min-height: 40px;
+        }
+        div[data-testid="stColumn"] div[data-testid="stVerticalBlock"]:has(.range-filter-anchor) div[data-testid="stHorizontalBlock"] {
+            gap: 6px !important;
+            overflow-x: visible;
+        }
+        div[data-testid="stColumn"] div[data-testid="stVerticalBlock"]:has(.range-filter-anchor) div[data-testid="stHorizontalBlock"] > div:nth-child(1),
+        div[data-testid="stColumn"] div[data-testid="stVerticalBlock"]:has(.range-filter-anchor) div[data-testid="stHorizontalBlock"] > div:nth-child(3) {
+            flex: 1 1 76px !important;
+            min-width: 76px !important;
+        }
+        div[data-testid="stColumn"] div[data-testid="stVerticalBlock"]:has(.range-filter-anchor) div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
+            flex: 0 0 18px !important;
+            min-width: 18px !important;
+        }
+        div[data-testid="stColumn"] div[data-testid="stVerticalBlock"]:has(.range-filter-anchor) input {
+            font-size: 13px;
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+        .toolbar-meta {
+            line-height: 32px;
+        }
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -2885,7 +2995,7 @@ with st.container(border=True):
     selected_paths = st.session_state.confirmed_category_paths
     if selected_paths:
         preview = selected_paths[:6]
-        pills = "".join(f"<span class='selected-pill'>{path}</span>" for path in preview)
+        pills = "".join(f"<span class='selected-pill'>{escape(path)}</span>" for path in preview)
         more = f" +{len(selected_paths) - len(preview)}" if len(selected_paths) > len(preview) else ""
         st.markdown(pills + more, unsafe_allow_html=True)
     else:
@@ -3117,12 +3227,12 @@ if st.session_state.last_collection_summary:
         st.warning(st.session_state.last_collection_summary)
 
 summary_cols = st.columns(6)
-summary_cols[0].metric("Products", len(products))
-summary_cols[1].metric("Selected", sum(1 for p in products if p.selected))
-summary_cols[2].metric("A", sum(1 for p in products if p.potential_level == "A"))
-summary_cols[3].metric("B", sum(1 for p in products if p.potential_level == "B"))
-summary_cols[4].metric("Risk", sum(1 for p in products if p.potential_level == "Risk"))
-summary_cols[5].metric("Avg Score", round(sum(p.potential_score for p in products) / len(products), 1) if products else 0)
+summary_cols[0].metric("产品数" if UI_LANG == "中文" else "Products", len(products))
+summary_cols[1].metric("已勾选" if UI_LANG == "中文" else "Selected", sum(1 for p in products if p.selected))
+summary_cols[2].metric("A 级", sum(1 for p in products if p.potential_level == "A"))
+summary_cols[3].metric("B 级", sum(1 for p in products if p.potential_level == "B"))
+summary_cols[4].metric("风险" if UI_LANG == "中文" else "Risk", sum(1 for p in products if p.potential_level == "Risk"))
+summary_cols[5].metric("平均分" if UI_LANG == "中文" else "Avg Score", round(sum(p.potential_score for p in products) / len(products), 1) if products else 0)
 
 tab_cards, tab_table, tab_log = st.tabs([T["cards"], T["table"], T["log"]])
 
@@ -3136,7 +3246,7 @@ with tab_cards:
             st.info("还没有产品数据。选择类目后点击“开始采集”。")
     else:
         selected_products = [p for p in products if p.selected]
-        toolbar = st.columns([0.52, 1.08, 1.2, 1.2, 0.9, 1.0, 0.55, 1.45, 0.95, 1.25, 1.0, 0.75], vertical_alignment="center")
+        toolbar = st.columns([0.45, 1.05, 1.05, 0.85, 1.0, 1.35, 0.9, 1.15, 0.95, 0.75], vertical_alignment="center")
         all_selected = bool(products) and len(selected_products) == len(products)
         select_summary = (
             f"已全选 <strong>{len(selected_products)}</strong> 条"
@@ -3154,9 +3264,7 @@ with tab_cards:
         toolbar[1].markdown(f"<div class='toolbar-meta'>{select_summary}</div>", unsafe_allow_html=True)
         if toolbar[2].button("复制ASIN", use_container_width=True, disabled=not selected_products):
             log(f"Copied {len(selected_products)} ASIN values.")
-        if toolbar[3].button("加入产品库", use_container_width=True, disabled=True):
-            log("Product library is not connected yet.")
-        toolbar[4].download_button(
+        toolbar[3].download_button(
             "导出",
             data=excel_bytes(selected_products),
             file_name="amazon_selection_selected.xlsx",
@@ -3164,19 +3272,18 @@ with tab_cards:
             disabled=not selected_products,
             use_container_width=True,
         )
-        toolbar[5].download_button(
+        toolbar[4].download_button(
             "导出明细",
             data=excel_bytes(products),
             file_name="amazon_selection_all.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
         )
-        toolbar[6].button("...", use_container_width=True)
-        toolbar[7].markdown(f"<div class='toolbar-meta'>搜索结果数：<strong>{len(products):,}</strong></div>", unsafe_allow_html=True)
-        toolbar[8].radio("View", ["列表", "大图"], horizontal=True, label_visibility="collapsed")
-        toolbar[9].selectbox("排序字段", ["月销量", "评分", "价格", "上架时间"], label_visibility="collapsed")
-        toolbar[10].selectbox("排序", ["降序", "升序"], label_visibility="collapsed")
-        toolbar[11].button("确定", type="primary", use_container_width=True)
+        toolbar[5].markdown(f"<div class='toolbar-meta'>搜索结果数：<strong>{len(products):,}</strong></div>", unsafe_allow_html=True)
+        toolbar[6].radio("View", ["列表", "大图"], horizontal=True, label_visibility="collapsed")
+        toolbar[7].selectbox("排序字段", ["月销量", "评分", "价格", "上架时间"], label_visibility="collapsed")
+        toolbar[8].selectbox("排序", ["降序", "升序"], label_visibility="collapsed")
+        toolbar[9].button("确定", type="primary", use_container_width=True)
         st.markdown("<div class='toolbar-spacer'></div>", unsafe_allow_html=True)
         render_cards(products)
         render_clipboard_bridge()
@@ -3190,33 +3297,33 @@ with tab_table:
         )
         selected_products = [p for p in products if p.selected]
         st.download_button(
-            "Download selected Excel",
+            "导出已选 Excel" if UI_LANG == "中文" else "Download selected Excel",
             data=excel_bytes(selected_products),
             file_name="amazon_selection_selected.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             disabled=not selected_products,
         )
         st.download_button(
-            "Download all Excel",
+            "导出全部 Excel" if UI_LANG == "中文" else "Download all Excel",
             data=excel_bytes(products),
             file_name="amazon_selection_all.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
         st.download_button(
-            "Download selected CSV",
+            "导出已选 CSV" if UI_LANG == "中文" else "Download selected CSV",
             data=csv_bytes(selected_products),
             file_name="amazon_selection_selected.csv",
             mime="text/csv",
             disabled=not selected_products,
         )
         st.download_button(
-            "Download all CSV",
+            "导出全部 CSV" if UI_LANG == "中文" else "Download all CSV",
             data=csv_bytes(products),
             file_name="amazon_selection_all.csv",
             mime="text/csv",
         )
     else:
-        st.info("No products yet.")
+        st.info("暂无产品数据。" if UI_LANG == "中文" else "No products yet.")
 
 with tab_log:
     st.code("\n".join(st.session_state.run_log[-80:]))
