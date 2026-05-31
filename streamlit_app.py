@@ -2301,6 +2301,10 @@ st.markdown(
         font-weight: 600;
         min-height: 42px;
         padding: 0 14px;
+        white-space: nowrap;
+    }
+    div[data-testid="stButton"] button p {
+        white-space: nowrap;
     }
     div[data-testid="stRadio"] > label,
     div[data-testid="stSelectbox"] > label,
@@ -2992,14 +2996,16 @@ if st.session_state.show_category_dialog:
     render_category_dialog()
 
 with st.container(border=True):
-    top_cols = st.columns([1.1, 1.25, 2.45, 2.0], vertical_alignment="bottom")
+    top_cols = st.columns([1.15, 1.0], vertical_alignment="bottom")
     with top_cols[0]:
         list_type = st.radio(T["list_type"], ["New Releases", "Best Sellers"], horizontal=True)
     with top_cols[1]:
         data_source = "卖家精灵插件"
         st.write("**数据源**")
         st.markdown("<div class='source-static'>卖家精灵插件</div>", unsafe_allow_html=True)
-    with top_cols[2]:
+
+    category_cols = st.columns([1.1, 1.45], vertical_alignment="bottom")
+    with category_cols[0]:
         st.write(f"**{T['categories']}**")
         if st.button(
             f"选择类目（已选 {len(st.session_state.confirmed_category_paths)}）",
@@ -3007,7 +3013,7 @@ with st.container(border=True):
         ):
             st.session_state.show_category_dialog = True
             st.rerun()
-    with top_cols[3]:
+    with category_cols[1]:
         custom_url = st.text_input(T["custom_url"], placeholder="https://www.amazon.com/...")
         batch_category_collect = st.checkbox("大类批量采集", value=False, help="打开当前大类页，自动发现小类链接，并逐个采集合格产品。")
 
