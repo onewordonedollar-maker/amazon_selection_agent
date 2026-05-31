@@ -637,29 +637,39 @@ def _capture_current_sellersprite_page(
     stable_rounds = 0
     target_reached_rounds = 0
     opened_at = time.monotonic()
-    _report(progress, 5, "\u6253\u5f00\u9875\u9762")
-    time.sleep(5)
-    best_text, best_images, best_product_count, best_hydrated_count, best_score = _observe_sellersprite_page(
-        client, best_text, best_images, best_product_count, best_hydrated_count, best_score, seen_texts, seen_images
-    )
-    _report(progress, 18, f"\u9876\u90e8\u68c0\u6d4b\uff1a{best_product_count}/{best_hydrated_count}")
+
+    def observe_best():
+        nonlocal best_text, best_images, best_product_count, best_hydrated_count, best_score
+        best_text, best_images, best_product_count, best_hydrated_count, best_score = _observe_sellersprite_page(
+            client, best_text, best_images, best_product_count, best_hydrated_count, best_score, seen_texts, seen_images
+        )
+
     def page_has_enough_products() -> bool:
         return best_product_count >= expected_products and best_hydrated_count >= expected_products
 
-    _report(progress, 35, "\u6eda\u52a8\u52a0\u8f7d")
-    client.evaluate(_SCROLL_THROUGH_PRODUCTS_SCRIPT, timeout=30)
-    best_text, best_images, best_product_count, best_hydrated_count, best_score = _observe_sellersprite_page(
-        client, best_text, best_images, best_product_count, best_hydrated_count, best_score, seen_texts, seen_images
-    )
-    _report(progress, 70, f"\u6eda\u52a8\u5b8c\u6210\uff1a{best_product_count}/{best_hydrated_count}")
+    _report(progress, 5, "\u9876\u90e8\u7b49\u5f85")
+    client.evaluate(_SCROLL_TOP_SCRIPT, timeout=10)
+    time.sleep(5)
+    observe_best()
+    _report(progress, 18, f"\u9876\u90e8\u68c0\u6d4b\uff1a{best_product_count}/{best_hydrated_count}")
 
-    _report(progress, 84, "\u5e95\u90e8\u8865\u89e6\u53d1")
+    _report(progress, 35, "\u4e2d\u90e8\u7b49\u5f85")
+    client.evaluate(_SCROLL_MIDDLE_SCRIPT, timeout=10)
+    time.sleep(5)
+    observe_best()
+    _report(progress, 48, f"\u4e2d\u90e8\u68c0\u6d4b\uff1a{best_product_count}/{best_hydrated_count}")
+
+    _report(progress, 65, "\u9875\u7801\u533a\u57df\u7b49\u5f85")
+    client.evaluate(_SCROLL_TO_PAGINATION_SCRIPT, timeout=10)
+    time.sleep(5)
+    observe_best()
+    _report(progress, 78, f"\u9875\u7801\u533a\u57df\u68c0\u6d4b\uff1a{best_product_count}/{best_hydrated_count}")
+
+    _report(progress, 86, "\u6700\u540e\u8865\u89e6\u53d1")
     client.evaluate(_BOTTOM_NUDGE_SCRIPT, timeout=10)
     time.sleep(5)
-    best_text, best_images, best_product_count, best_hydrated_count, best_score = _observe_sellersprite_page(
-        client, best_text, best_images, best_product_count, best_hydrated_count, best_score, seen_texts, seen_images
-    )
-    _report(progress, 88, f"\u5e95\u90e8\u68c0\u6d4b\uff1a{best_product_count}/{best_hydrated_count}")
+    observe_best()
+    _report(progress, 90, f"\u6700\u540e\u68c0\u6d4b\uff1a{best_product_count}/{best_hydrated_count}")
     monitor_rounds = 2 if page_has_enough_products() else min(max_rounds, 8)
     for _round_index in range(monitor_rounds):
         text = client.evaluate("document.body ? document.body.innerText : ''", timeout=20) or ""
@@ -862,6 +872,16 @@ _SCROLL_BOTTOM_SCRIPT = r"""
 (() => {
   const scroller = document.scrollingElement || document.documentElement || document.body;
   scroller.scrollTop = scroller.scrollHeight;
+  window.dispatchEvent(new Event("scroll"));
+  return scroller.scrollTop;
+})()
+"""
+
+
+_SCROLL_TOP_SCRIPT = r"""
+(() => {
+  const scroller = document.scrollingElement || document.documentElement || document.body;
+  scroller.scrollTop = 0;
   window.dispatchEvent(new Event("scroll"));
   return scroller.scrollTop;
 })()
