@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.streamlit/
+outputs/
+chrome_profile/
+
+# Local editor/runtime noise
+.venv/
+venv/
+.env
+.DS_Store
+Thumbs.db

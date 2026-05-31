@@ -1,0 +1,1094 @@
+from __future__ import annotations
+
+import base64
+import json
+import os
+import re
+import socket
+import struct
+import time
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from urllib.error import URLError
+from urllib.parse import parse_qs, quote, urljoin, urlparse
+from urllib.request import Request, urlopen
+
+
+DEFAULT_CDP_PORT = 9222
+SELLERSPRITE_MARKERS = ("近30天销量(父体)", "销售额", "FBA费用")
+
+
+@dataclass
+class ChromeRefreshResult:
+    ok: bool
+    product_count: int
+    hydrated_count: int
+    image_count: int
+    source_url: str
+    message: str
+    next_page_url: str = ""
+
+
+@dataclass
+class CategoryLink:
+    title: str
+    url: str
+    node: str = ""
+    depth: int = 0
+    is_leaf: bool = True
+    path: str = ""
+
+
+def is_rank_category_url(url: str) -> bool:
+    parsed = urlparse(url)
+    match = re.search(r"/gp/(?:bestsellers|new-releases)/([^/?#]+)", parsed.path)
+    if not match:
+        return False
+    department = match.group(1).strip("/")
+    if not department:
+        return False
+    path_after_department = parsed.path[match.end():]
+    path_node = re.search(r"/(\d{5,})(?:/|$)", path_after_department)
+    query_node = parse_qs(parsed.query).get("node", [""])[0]
+    return bool(path_node or query_node)
+
+
+class CDPError(RuntimeError):
+    pass
+
+
+class CDPClient:
+    def __init__(self, websocket_url: str, timeout: int = 15):
+        self.websocket_url = websocket_url
+        self.timeout = timeout
+        self._id = 0
+        self._socket = self._connect(websocket_url, timeout)
+
+    def close(self):
+        try:
+            self._socket.close()
+        except OSError:
+            pass
+
+    def command(self, method: str, params: dict | None = None) -> dict:
+        self._id += 1
+        message = {"id": self._id, "method": method}
+        if params is not None:
+            message["params"] = params
+        self._send_json(message)
+        deadline = time.time() + self.timeout
+        while time.time() < deadline:
+            payload = self._recv_json()
+            if payload.get("id") != self._id:
+                continue
+            if "error" in payload:
+                raise CDPError(json.dumps(payload["error"], ensure_ascii=False))
+            return payload.get("result", {})
+        raise CDPError(f"Timed out waiting for CDP command: {method}")
+
+    def evaluate(self, expression: str, timeout: int | None = None):
+        previous_timeout = self.timeout
+        if timeout is not None:
+            self.timeout = timeout
+        try:
+            result = self.command(
+                "Runtime.evaluate",
+                {
+                    "expression": expression,
+                    "awaitPromise": True,
+                    "returnByValue": True,
+                    "timeout": (timeout or previous_timeout) * 1000,
+                },
+            )
+            remote = result.get("result", {})
+            if "value" in remote:
+                return remote["value"]
+            return remote.get("description", "")
+        finally:
+            self.timeout = previous_timeout
+
+    def _connect(self, websocket_url: str, timeout: int) -> socket.socket:
+        parsed = urlparse(websocket_url)
+        if parsed.scheme != "ws":
+            raise CDPError("Only local ws:// CDP endpoints are supported.")
+        host = parsed.hostname or "127.0.0.1"
+        port = parsed.port or 80
+        path = parsed.path or "/"
+        if parsed.query:
+            path += "?" + parsed.query
+        sock = socket.create_connection((host, port), timeout=timeout)
+        sock.settimeout(timeout)
+        key = base64.b64encode(os.urandom(16)).decode("ascii")
+        request = (
+            f"GET {path} HTTP/1.1\r\n"
+            f"Host: {host}:{port}\r\n"
+            "Upgrade: websocket\r\n"
+            "Connection: Upgrade\r\n"
+            f"Sec-WebSocket-Key: {key}\r\n"
+            "Sec-WebSocket-Version: 13\r\n\r\n"
+        )
+        sock.sendall(request.encode("ascii"))
+        response = b""
+        while b"\r\n\r\n" not in response:
+            chunk = sock.recv(4096)
+            if not chunk:
+                break
+            response += chunk
+        if b" 101 " not in response.split(b"\r\n", 1)[0]:
+            raise CDPError("Chrome did not accept the WebSocket upgrade.")
+        return sock
+
+    def _send_json(self, payload: dict):
+        data = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        self._socket.sendall(_encode_client_frame(data))
+
+    def _recv_json(self) -> dict:
+        while True:
+            opcode, payload = _read_frame(self._socket)
+            if opcode == 0x1:
+                return json.loads(payload.decode("utf-8", errors="replace"))
+            if opcode == 0x8:
+                raise CDPError("CDP WebSocket closed.")
+            if opcode == 0x9:
+                self._socket.sendall(_encode_client_frame(payload, opcode=0xA))
+
+
+def _encode_client_frame(payload: bytes, opcode: int = 0x1) -> bytes:
+    first = 0x80 | opcode
+    length = len(payload)
+    mask_bit = 0x80
+    if length < 126:
+        header = struct.pack("!BB", first, mask_bit | length)
+    elif length < 65536:
+        header = struct.pack("!BBH", first, mask_bit | 126, length)
+    else:
+        header = struct.pack("!BBQ", first, mask_bit | 127, length)
+    mask = os.urandom(4)
+    masked = bytes(byte ^ mask[index % 4] for index, byte in enumerate(payload))
+    return header + mask + masked
+
+
+def _read_frame(sock: socket.socket) -> tuple[int, bytes]:
+    first_two = _recv_exact(sock, 2)
+    first, second = first_two
+    opcode = first & 0x0F
+    length = second & 0x7F
+    if length == 126:
+        length = struct.unpack("!H", _recv_exact(sock, 2))[0]
+    elif length == 127:
+        length = struct.unpack("!Q", _recv_exact(sock, 8))[0]
+    masked = bool(second & 0x80)
+    mask = _recv_exact(sock, 4) if masked else b""
+    payload = _recv_exact(sock, length) if length else b""
+    if masked:
+        payload = bytes(byte ^ mask[index % 4] for index, byte in enumerate(payload))
+    return opcode, payload
+
+
+def _recv_exact(sock: socket.socket, size: int) -> bytes:
+    chunks = []
+    remaining = size
+    while remaining:
+        chunk = sock.recv(remaining)
+        if not chunk:
+            raise CDPError("Unexpected end of WebSocket stream.")
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
+
+
+def chrome_debugger_available(port: int = DEFAULT_CDP_PORT) -> bool:
+    try:
+        chrome_json("/json/version", port=port, timeout=1)
+        return True
+    except Exception:
+        return False
+
+
+def chrome_json(path: str, port: int = DEFAULT_CDP_PORT, timeout: int = 5, method: str = "GET") -> dict | list:
+    request = Request(f"http://127.0.0.1:{port}{path}", method=method)
+    with urlopen(request, timeout=timeout) as response:
+        return json.loads(response.read().decode("utf-8", errors="replace"))
+
+
+def open_tab(url: str, port: int = DEFAULT_CDP_PORT) -> dict:
+    encoded = quote(url, safe=":/?&=%#")
+    try:
+        return chrome_json(f"/json/new?{encoded}", port=port, timeout=8, method="PUT")
+    except URLError:
+        return chrome_json(f"/json/new?{encoded}", port=port, timeout=8, method="GET")
+
+
+def close_tab(target_id: str | None, port: int = DEFAULT_CDP_PORT) -> None:
+    if not target_id:
+        return
+    try:
+        chrome_json(f"/json/close/{target_id}", port=port, timeout=3)
+    except Exception:
+        pass
+
+
+def discover_bestseller_category_links(
+    url: str,
+    port: int = DEFAULT_CDP_PORT,
+    max_links: int = 500,
+    wait_seconds: float = 4.0,
+) -> list[CategoryLink]:
+    if not chrome_debugger_available(port):
+        raise RuntimeError(f"未连接到 Chrome 调试端口 {port}。")
+
+    target = open_tab(url, port=port)
+    websocket_url = target.get("webSocketDebuggerUrl")
+    if not websocket_url:
+        raise RuntimeError("Chrome 已打开页面，但没有返回 CDP WebSocket 地址。")
+
+    parsed_seed = urlparse(url)
+    seed_without_ref = url.split("/ref=", 1)[0].rstrip("/")
+    seed_match = re.search(r"/gp/(?:bestsellers|new-releases)/([^/?#]+)", parsed_seed.path)
+    list_kind = "new-releases" if "/gp/new-releases/" in parsed_seed.path else "bestsellers"
+    department_slug = seed_match.group(1) if seed_match else ""
+    current_node_match = re.search(r"/(\d{5,})(?:/)?$", parsed_seed.path.rstrip("/"))
+    current_node = current_node_match.group(1) if current_node_match else ""
+    client = CDPClient(websocket_url, timeout=20)
+    try:
+        client.command("Runtime.enable")
+        client.command("Page.enable")
+        time.sleep(wait_seconds)
+        raw_links = client.evaluate(
+            r"""
+            (() => {
+              const anchors = Array.from(document.querySelectorAll('a[href]'));
+              const nodeFromHref = (href) => {
+                try {
+                  const url = new URL(href, location.href);
+                  const pathMatch = url.pathname.match(/\/(\d{5,})(?:\/|$)/);
+                  return pathMatch ? pathMatch[1] : (url.searchParams.get('node') || '');
+                } catch {
+                  return '';
+                }
+              };
+              const rowFor = (anchor) => {
+                const candidates = [anchor.closest('li'), anchor.closest('[role="treeitem"]'), anchor.closest('div')];
+                return candidates.find(Boolean) || anchor.parentElement;
+              };
+              const depthFor = (anchor) => {
+                const row = rowFor(anchor);
+                const ariaLevel = row && row.getAttribute && row.getAttribute('aria-level');
+                if (ariaLevel && /^\\d+$/.test(ariaLevel)) return parseInt(ariaLevel, 10);
+                let depth = 0;
+                let node = anchor.parentElement;
+                while (node && node !== document.body) {
+                  if (node.tagName === 'UL' || node.tagName === 'OL' || node.getAttribute('role') === 'group') depth += 1;
+                  node = node.parentElement;
+                }
+                return depth;
+              };
+              return anchors.map((anchor, index) => {
+                const item = rowFor(anchor);
+                const href = anchor.href;
+                const node = nodeFromHref(href);
+                const descendants = item ? Array.from(item.querySelectorAll('a[href]')).filter((child) => child !== anchor) : [];
+                return {
+                  index,
+                  title: (anchor.innerText || anchor.textContent || anchor.getAttribute('aria-label') || '').trim(),
+                  href,
+                  node,
+                  hasChildren: descendants.some((child) => nodeFromHref(child.href)),
+                  depth: depthFor(anchor)
+                };
+              });
+            })()
+            """,
+            timeout=20,
+        ) or []
+    finally:
+        client.close()
+        close_tab(target.get("id"), port=port)
+
+    nav_links = [
+        item for item in raw_links
+        if "/zgbs/" in str(item.get("href") or "") or "/new-releases/" in str(item.get("href") or "")
+    ]
+    source_links = nav_links or raw_links
+    for index, item in enumerate(source_links):
+        depth = int(item.get("depth") or 0)
+        item["_has_depth_child"] = False
+        for next_item in source_links[index + 1:]:
+            next_depth = int(next_item.get("depth") or 0)
+            if next_depth <= depth:
+                break
+            next_href = str(next_item.get("href") or "")
+            if "/zgbs/" in next_href or f"/gp/{list_kind}/" in next_href or "/new-releases/" in next_href:
+                item["_has_depth_child"] = True
+                break
+
+    links: list[CategoryLink] = []
+    seen: set[str] = set()
+    department_started = False
+    department_text = department_slug.replace("-", "")
+    footer_break_titles = {
+        "start a selling account",
+        "create your free business account",
+        "reload your balance",
+        "gift cards",
+        "amazon currency converter",
+        "let us help you",
+        "amazon payment products",
+        "make money with us",
+    }
+    ignored_titles = {
+        "any department",
+        "amazon best sellers",
+        "best sellers",
+        "main content",
+        "sign in",
+        "start here.",
+        "deals & coupons",
+        "subscribe & save",
+        "pet care tips",
+        "accessibility",
+        "amazon devices",
+        "become an amazon hub partner",
+        "see more ways to make money",
+        "credit card marketplace",
+        "sell on amazon",
+        "sell apps on amazon",
+        "shop with points",
+        "amazon business",
+        "amazon global",
+        "advertise your products",
+        "self-publish with us",
+        "host an amazon hub",
+    }
+    path_stack: list[str] = []
+    base_depth: int | None = None
+    for item in source_links:
+        href = str(item.get("href") or "")
+        title = re.sub(r"\s+", " ", str(item.get("title") or "")).strip()
+        if not href or not title:
+            continue
+        lowered_title = title.lower()
+        if department_started and links and lowered_title in footer_break_titles:
+            break
+        title_key = re.sub(r"[^a-z0-9]+", "", title.lower())
+        if department_text and title_key == department_text:
+            department_started = True
+            continue
+        absolute = urljoin(f"{parsed_seed.scheme}://{parsed_seed.netloc}", href)
+        normalized = absolute.split("/ref=", 1)[0].rstrip("/")
+        parsed_link = urlparse(absolute)
+        node = ""
+        node_match = re.search(r"/(\d{5,})(?:/|$)", parsed_link.path)
+        if node_match:
+            node = node_match.group(1)
+        if f"/gp/{list_kind}/" in absolute:
+            if not node:
+                node = parse_qs(parsed_link.query).get("node", [""])[0]
+            if not node or not department_slug:
+                continue
+            category_url = absolute
+        elif "/zgbs/" in parsed_link.path and department_slug and node:
+            category_url = f"{parsed_seed.scheme}://{parsed_seed.netloc}/gp/{list_kind}/{department_slug}/{node}"
+            normalized = category_url.rstrip("/")
+        else:
+            node = parse_qs(parsed_link.query).get("node", [""])[0]
+            if not node or not department_slug:
+                continue
+            if not department_started:
+                continue
+            category_url = f"{parsed_seed.scheme}://{parsed_seed.netloc}/gp/{list_kind}/{department_slug}/{node}"
+            normalized = category_url.rstrip("/")
+        if node and node == current_node:
+            continue
+        if normalized == seed_without_ref or normalized in seen:
+            continue
+        if lowered_title in ignored_titles:
+            continue
+        depth = int(item.get("depth") or 0)
+        if base_depth is None:
+            base_depth = depth
+        relative_depth = max(0, depth - base_depth)
+        if relative_depth > len(path_stack):
+            relative_depth = len(path_stack)
+        path_stack = path_stack[:relative_depth]
+        path_stack.append(title)
+        category_path = " > ".join(path_stack)
+        is_leaf = not (item.get("hasChildren") or item.get("_has_depth_child"))
+        seen.add(normalized)
+        links.append(
+            CategoryLink(
+                title=title,
+                url=category_url,
+                node=node,
+                depth=depth,
+                is_leaf=is_leaf,
+                path=category_path,
+            )
+        )
+        if len(links) >= max_links:
+            break
+    return links
+
+
+def refresh_sellersprite_cache(
+    url: str,
+    dom_cache_path: Path,
+    image_cache_path: Path,
+    meta_cache_path: Path,
+    port: int = DEFAULT_CDP_PORT,
+    expected_products: int = 50,
+    max_rounds: int = 24,
+    wait_seconds: float = 2.5,
+    min_capture_seconds: float = 25.0,
+    progress=None,
+) -> ChromeRefreshResult:
+    if not chrome_debugger_available(port):
+        return ChromeRefreshResult(False, 0, 0, 0, url, f"\u672a\u8fde\u63a5\u5230 Chrome \u8c03\u8bd5\u7aef\u53e3 {port}\u3002\u8bf7\u5148\u542f\u52a8\u91c7\u96c6 Chrome\u3002")
+
+    target = open_tab(url, port=port)
+    websocket_url = target.get("webSocketDebuggerUrl")
+    if not websocket_url:
+        return ChromeRefreshResult(False, 0, 0, 0, url, "\u0043\u0068\u0072\u006f\u006d\u0065 \u5df2\u6253\u5f00\u9875\u9762\uff0c\u4f46\u6ca1\u6709\u8fd4\u56de CDP WebSocket \u5730\u5740\u3002")
+
+    client = CDPClient(websocket_url, timeout=20)
+    best_text = ""
+    best_images: dict[str, str] = {}
+    best_product_count = 0
+    best_hydrated_count = 0
+    best_score = (-1, -1, -1)
+    last_signature = None
+    stable_rounds = 0
+    target_reached_rounds = 0
+    try:
+        client.command("Runtime.enable")
+        client.command("Page.enable")
+        opened_at = time.monotonic()
+        _report(progress, 5, "\u0041\u006d\u0061\u007a\u006f\u006e \u9875\u9762\u5df2\u6253\u5f00\uff0c\u6b63\u5728\u7b49\u5f85\u9875\u9762\u548c\u5356\u5bb6\u7cbe\u7075\u52a0\u8f7d\u3002")
+        time.sleep(8)
+        _report(progress, 8, "\u9875\u9762\u57fa\u7840\u52a0\u8f7d\u5b8c\u6210\uff0c\u76f4\u63a5\u6eda\u52a8\u5230\u5e95\u90e8\u89e6\u53d1\u5356\u5bb6\u7cbe\u7075\u3002")
+        client.evaluate(_SCROLL_BOTTOM_SCRIPT, timeout=10)
+        time.sleep(2)
+        for round_index in range(max_rounds):
+            text = client.evaluate("document.body ? document.body.innerText : ''", timeout=20) or ""
+            images = client.evaluate(_IMAGE_MAP_SCRIPT, timeout=20) or {}
+            product_count = count_products(text)
+            hydrated_count = count_hydrated_products(text)
+            image_count = len(images) if isinstance(images, dict) else 0
+            score = (hydrated_count, product_count, image_count)
+            signature = (product_count, hydrated_count, image_count)
+            if signature == last_signature:
+                stable_rounds += 1
+            else:
+                stable_rounds = 0
+                last_signature = signature
+            if score >= best_score:
+                best_text = text
+                best_images = {asin: src for asin, src in images.items() if asin and src} if isinstance(images, dict) else {}
+                best_product_count = product_count
+                best_hydrated_count = hydrated_count
+                best_score = score
+            elapsed = time.monotonic() - opened_at
+            wait_remaining = max(0, int(min_capture_seconds - elapsed))
+            percent = min(95, int((best_hydrated_count / max(expected_products, 1)) * 90) + 5)
+            wait_note = f"\uff0c\u7a33\u5b9a\u7b49\u5f85 {wait_remaining} \u79d2" if wait_remaining else ""
+            _report(
+                progress,
+                percent,
+                f"\u5356\u5bb6\u7cbe\u7075\u52a0\u8f7d\u4e2d\uff1a\u5df2\u8bc6\u522b {max(product_count, best_product_count)} \u6761\u4ea7\u54c1\uff0c"
+                f"{best_hydrated_count} \u6761\u63d2\u4ef6\u5b57\u6bb5\u5b8c\u6574{wait_note}\u3002",
+            )
+            if best_hydrated_count >= expected_products:
+                target_reached_rounds += 1
+            if (
+                best_hydrated_count >= expected_products
+                and target_reached_rounds >= 2
+                and stable_rounds >= 1
+                and elapsed >= min_capture_seconds
+            ):
+                break
+            client.evaluate(_SCROLL_BOTTOM_SCRIPT, timeout=10)
+            time.sleep(wait_seconds)
+        if not best_text:
+            return ChromeRefreshResult(False, 0, 0, 0, url, "\u9875\u9762\u6587\u672c\u4e3a\u7a7a\uff0c\u53ef\u80fd\u9875\u9762\u672a\u52a0\u8f7d\u5b8c\u6210\u6216\u88ab\u9a8c\u8bc1\u7801\u62e6\u622a\u3002")
+        _report(progress, 96, "\u6b63\u5728\u6eda\u52a8\u5230\u5e95\u90e8\u68c0\u67e5\u4e0b\u4e00\u9875\u3002")
+        client.evaluate(_SCROLL_BOTTOM_SCRIPT, timeout=10)
+        time.sleep(1.2)
+        final_text = client.evaluate("document.body ? document.body.innerText : ''", timeout=20) or ""
+        final_images = client.evaluate(_IMAGE_MAP_SCRIPT, timeout=20) or {}
+        final_product_count = count_products(final_text)
+        final_hydrated_count = count_hydrated_products(final_text)
+        final_image_count = len(final_images) if isinstance(final_images, dict) else 0
+        final_score = (final_hydrated_count, final_product_count, final_image_count)
+        if final_score >= best_score:
+            best_text = final_text
+            best_images = {asin: src for asin, src in final_images.items() if asin and src} if isinstance(final_images, dict) else {}
+            best_product_count = final_product_count
+            best_hydrated_count = final_hydrated_count
+            best_score = final_score
+        next_page_url = client.evaluate(_NEXT_PAGE_SCRIPT, timeout=10) or ""
+        dom_cache_path.parent.mkdir(parents=True, exist_ok=True)
+        dom_cache_path.write_text(best_text, encoding="utf-8")
+        image_cache_path.write_text(json.dumps(best_images, ensure_ascii=False, indent=2), encoding="utf-8")
+        meta = {
+            "source_url": url,
+            "captured_at": datetime.now().isoformat(timespec="seconds"),
+            "product_count": best_product_count,
+            "image_count": len(best_images),
+            "hydrated_count": best_hydrated_count,
+            "next_page_url": next_page_url,
+            "loaded_markers": list(SELLERSPRITE_MARKERS),
+            "driver": f"local-chrome-cdp:{port}",
+            "capture_seconds": round(time.monotonic() - opened_at, 1),
+            "min_capture_seconds": min_capture_seconds,
+        }
+        meta_cache_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+        _report(
+            progress,
+            100,
+            f"\u5237\u65b0\u5b8c\u6210\uff1a{best_product_count} \u6761\u4ea7\u54c1\uff0c{best_hydrated_count} \u6761\u63d2\u4ef6\u5b57\u6bb5\u5b8c\u6574\u3002",
+        )
+        required_count = best_product_count or expected_products
+        ok = best_hydrated_count >= required_count
+        message = "\u5237\u65b0\u5b8c\u6210\u3002" if ok else "\u5df2\u4fdd\u5b58\u5f53\u524d\u9875\u9762\u6570\u636e\uff0c\u4f46\u5356\u5bb6\u7cbe\u7075\u8865\u5145\u5b57\u6bb5\u4ecd\u672a\u5b8c\u5168\u52a0\u8f7d\u3002"
+        return ChromeRefreshResult(ok, best_product_count, best_hydrated_count, len(best_images), url, message, next_page_url)
+    finally:
+        client.close()
+        close_tab(target.get("id"), port=port)
+
+
+def refresh_sellersprite_cache_pages(
+    url: str,
+    dom_cache_path: Path,
+    image_cache_path: Path,
+    meta_cache_path: Path,
+    port: int = DEFAULT_CDP_PORT,
+    expected_products: int = 50,
+    page_count: int = 2,
+    progress=None,
+    page_callback=None,
+) -> list[ChromeRefreshResult]:
+    if not is_rank_category_url(url):
+        return [ChromeRefreshResult(False, 0, 0, 0, url, "\u8df3\u8fc7\u975e\u5177\u4f53\u699c\u5355\u7c7b\u76ee\u9875\uff1a\u8fd9\u7c7b\u603b\u5165\u53e3\u9875\u5356\u5bb6\u7cbe\u7075\u4e0d\u4f1a\u52a0\u8f7d\u4ea7\u54c1\u6570\u636e\u3002")]
+    if not chrome_debugger_available(port):
+        return [ChromeRefreshResult(False, 0, 0, 0, url, f"\u672a\u8fde\u63a5\u5230 Chrome \u8c03\u8bd5\u7aef\u53e3 {port}\u3002\u8bf7\u5148\u542f\u52a8\u91c7\u96c6 Chrome\u3002")]
+
+    target = open_tab(url, port=port)
+    websocket_url = target.get("webSocketDebuggerUrl")
+    if not websocket_url:
+        return [ChromeRefreshResult(False, 0, 0, 0, url, "\u0043\u0068\u0072\u006f\u006d\u0065 \u5df2\u6253\u5f00\u9875\u9762\uff0c\u4f46\u6ca1\u6709\u8fd4\u56de CDP WebSocket \u5730\u5740\u3002")]
+
+    client = CDPClient(websocket_url, timeout=20)
+    results: list[ChromeRefreshResult] = []
+    try:
+        client.command("Runtime.enable")
+        client.command("Page.enable")
+        for page in range(1, page_count + 1):
+            page_name = "\u7b2c\u4e00\u9875" if page == 1 else "\u7b2c\u4e8c\u9875" if page == 2 else f"\u7b2c {page} \u9875"
+
+            def page_progress(percent: int, message: str, page_name=page_name):
+                _report(progress, percent, f"{page_name}\uff5c{message}")
+
+            result = _capture_current_sellersprite_page(
+                client,
+                dom_cache_path,
+                image_cache_path,
+                meta_cache_path,
+                expected_products=expected_products,
+                progress=page_progress,
+            )
+            results.append(result)
+            if page_callback:
+                page_callback(page, result)
+            if page >= page_count:
+                break
+            clicked = client.evaluate(_CLICK_NEXT_PAGE_SCRIPT, timeout=10)
+            if not isinstance(clicked, dict) or not clicked.get("clicked"):
+                results.append(ChromeRefreshResult(False, 0, 0, 0, result.source_url, "\u672a\u627e\u5230\u53ef\u70b9\u51fb\u7684\u4e0b\u4e00\u9875\u6309\u94ae\u3002"))
+                break
+            _report(progress, 99, f"{page_name}\uff5c\u5207\u5230\u4e0b\u4e00\u9875")
+            time.sleep(8)
+        return results
+    finally:
+        client.close()
+        close_tab(target.get("id"), port=port)
+
+
+def _capture_current_sellersprite_page(
+    client: CDPClient,
+    dom_cache_path: Path,
+    image_cache_path: Path,
+    meta_cache_path: Path,
+    expected_products: int = 50,
+    max_rounds: int = 24,
+    wait_seconds: float = 2.5,
+    min_capture_seconds: float = 25.0,
+    progress=None,
+) -> ChromeRefreshResult:
+    source_url = client.evaluate("location.href", timeout=10) or ""
+    best_text = ""
+    best_images: dict[str, str] = {}
+    seen_texts: list[str] = []
+    seen_images: dict[str, str] = {}
+    best_product_count = 0
+    best_hydrated_count = 0
+    best_score = (-1, -1, -1)
+    last_signature = None
+    stable_rounds = 0
+    target_reached_rounds = 0
+    opened_at = time.monotonic()
+    _report(progress, 5, "\u6253\u5f00\u9875\u9762")
+    time.sleep(5)
+    best_text, best_images, best_product_count, best_hydrated_count, best_score = _observe_sellersprite_page(
+        client, best_text, best_images, best_product_count, best_hydrated_count, best_score, seen_texts, seen_images
+    )
+    _report(progress, 18, f"\u9876\u90e8\u68c0\u6d4b\uff1a{best_product_count}/{best_hydrated_count}")
+    def page_has_enough_products() -> bool:
+        return best_product_count >= expected_products and best_hydrated_count >= expected_products
+
+    _report(progress, 35, "\u6eda\u52a8\u52a0\u8f7d")
+    client.evaluate(_SCROLL_THROUGH_PRODUCTS_SCRIPT, timeout=30)
+    best_text, best_images, best_product_count, best_hydrated_count, best_score = _observe_sellersprite_page(
+        client, best_text, best_images, best_product_count, best_hydrated_count, best_score, seen_texts, seen_images
+    )
+    _report(progress, 70, f"\u6eda\u52a8\u5b8c\u6210\uff1a{best_product_count}/{best_hydrated_count}")
+
+    _report(progress, 84, "\u5e95\u90e8\u8865\u89e6\u53d1")
+    client.evaluate(_BOTTOM_NUDGE_SCRIPT, timeout=10)
+    time.sleep(5)
+    best_text, best_images, best_product_count, best_hydrated_count, best_score = _observe_sellersprite_page(
+        client, best_text, best_images, best_product_count, best_hydrated_count, best_score, seen_texts, seen_images
+    )
+    _report(progress, 88, f"\u5e95\u90e8\u68c0\u6d4b\uff1a{best_product_count}/{best_hydrated_count}")
+    monitor_rounds = 2 if page_has_enough_products() else min(max_rounds, 8)
+    for _round_index in range(monitor_rounds):
+        text = client.evaluate("document.body ? document.body.innerText : ''", timeout=20) or ""
+        images = client.evaluate(_IMAGE_MAP_SCRIPT, timeout=20) or {}
+        _remember_sellersprite_snapshot(text, images, seen_texts, seen_images)
+        product_count = count_products(text)
+        hydrated_count = count_hydrated_products(text)
+        image_count = len(images) if isinstance(images, dict) else 0
+        score = (hydrated_count, product_count, image_count)
+        signature = (product_count, hydrated_count, image_count)
+        if signature == last_signature:
+            stable_rounds += 1
+        else:
+            stable_rounds = 0
+            last_signature = signature
+        if score >= best_score:
+            best_text = text
+            best_images = {asin: src for asin, src in images.items() if asin and src} if isinstance(images, dict) else {}
+            best_product_count = product_count
+            best_hydrated_count = hydrated_count
+            best_score = score
+        percent = min(95, int((best_hydrated_count / max(expected_products, 1)) * 90) + 5)
+        wait_note = "\u786e\u8ba4" if page_has_enough_products() else "\u7b49\u5f85"
+        _report(
+            progress,
+            percent,
+            f"{wait_note}\uff1a{max(product_count, best_product_count)}/{best_hydrated_count}",
+        )
+        if page_has_enough_products():
+            target_reached_rounds += 1
+        if (
+            page_has_enough_products()
+            and target_reached_rounds >= 2
+            and stable_rounds >= 1
+        ):
+            break
+        time.sleep(wait_seconds)
+    if not best_text:
+        return ChromeRefreshResult(False, 0, 0, 0, source_url, "\u9875\u9762\u6587\u672c\u4e3a\u7a7a\uff0c\u53ef\u80fd\u9875\u9762\u672a\u52a0\u8f7d\u5b8c\u6210\u6216\u88ab\u9a8c\u8bc1\u7801\u62e6\u622a\u3002")
+    _report(progress, 96, "\u590d\u67e5\u6570\u636e")
+    final_text = client.evaluate("document.body ? document.body.innerText : ''", timeout=20) or ""
+    final_images = client.evaluate(_IMAGE_MAP_SCRIPT, timeout=20) or {}
+    _remember_sellersprite_snapshot(final_text, final_images, seen_texts, seen_images)
+    final_product_count = count_products(final_text)
+    final_hydrated_count = count_hydrated_products(final_text)
+    final_image_count = len(final_images) if isinstance(final_images, dict) else 0
+    final_score = (final_hydrated_count, final_product_count, final_image_count)
+    if final_score >= best_score:
+        best_text = final_text
+        best_images = {asin: src for asin, src in final_images.items() if asin and src} if isinstance(final_images, dict) else {}
+        best_product_count = final_product_count
+        best_hydrated_count = final_hydrated_count
+        best_score = final_score
+    next_page_url = client.evaluate(_NEXT_PAGE_SCRIPT, timeout=10) or ""
+    source_url = client.evaluate("location.href", timeout=10) or source_url
+    combined_text = "\n\n".join(seen_texts) if seen_texts else best_text
+    combined_product_count = count_products(combined_text)
+    combined_hydrated_count = count_hydrated_products(combined_text)
+    if combined_product_count >= best_product_count:
+        best_text = combined_text
+        best_images = seen_images or best_images
+        best_product_count = combined_product_count
+        best_hydrated_count = max(best_hydrated_count, combined_hydrated_count)
+    dom_cache_path.parent.mkdir(parents=True, exist_ok=True)
+    dom_cache_path.write_text(best_text, encoding="utf-8")
+    image_cache_path.write_text(json.dumps(best_images, ensure_ascii=False, indent=2), encoding="utf-8")
+    meta = {
+        "source_url": source_url,
+        "captured_at": datetime.now().isoformat(timespec="seconds"),
+        "product_count": best_product_count,
+        "image_count": len(best_images),
+        "hydrated_count": best_hydrated_count,
+        "next_page_url": next_page_url,
+        "loaded_markers": list(SELLERSPRITE_MARKERS),
+        "driver": f"local-chrome-cdp:{DEFAULT_CDP_PORT}",
+        "capture_seconds": round(time.monotonic() - opened_at, 1),
+        "min_capture_seconds": min_capture_seconds,
+    }
+    meta_cache_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+    _report(progress, 100, f"\u5b8c\u6210\uff1a{best_product_count}/{best_hydrated_count}")
+    required_count = best_product_count or expected_products
+    ok = best_hydrated_count >= required_count
+    message = "\u5237\u65b0\u5b8c\u6210\u3002" if ok else "\u5df2\u4fdd\u5b58\u5f53\u524d\u9875\u9762\u6570\u636e\uff0c\u4f46\u5356\u5bb6\u7cbe\u7075\u8865\u5145\u5b57\u6bb5\u4ecd\u672a\u5b8c\u5168\u52a0\u8f7d\u3002"
+    return ChromeRefreshResult(ok, best_product_count, best_hydrated_count, len(best_images), source_url, message, next_page_url)
+
+
+def _observe_sellersprite_page(
+    client: CDPClient,
+    best_text: str,
+    best_images: dict[str, str],
+    best_product_count: int,
+    best_hydrated_count: int,
+    best_score: tuple[int, int, int],
+    seen_texts: list[str] | None = None,
+    seen_images: dict[str, str] | None = None,
+) -> tuple[str, dict[str, str], int, int, tuple[int, int, int]]:
+    text = client.evaluate("document.body ? document.body.innerText : ''", timeout=20) or ""
+    images = client.evaluate(_IMAGE_MAP_SCRIPT, timeout=20) or {}
+    _remember_sellersprite_snapshot(text, images, seen_texts, seen_images)
+    product_count = count_products(text)
+    hydrated_count = count_hydrated_products(text)
+    image_count = len(images) if isinstance(images, dict) else 0
+    score = (hydrated_count, product_count, image_count)
+    if score >= best_score:
+        return (
+            text,
+            {asin: src for asin, src in images.items() if asin and src} if isinstance(images, dict) else {},
+            product_count,
+            hydrated_count,
+            score,
+        )
+    return best_text, best_images, best_product_count, best_hydrated_count, best_score
+
+
+def _remember_sellersprite_snapshot(
+    text: str,
+    images: dict | None,
+    seen_texts: list[str] | None,
+    seen_images: dict[str, str] | None,
+) -> None:
+    if seen_texts is not None and text and text not in seen_texts:
+        seen_texts.append(text)
+    if seen_images is not None and isinstance(images, dict):
+        for asin, src in images.items():
+            if asin and src and asin not in seen_images:
+                seen_images[asin] = src
+
+
+_SCROLL_BOTTOM_SCRIPT = r"""
+(() => {
+  const scroller = document.scrollingElement || document.documentElement || document.body;
+  scroller.scrollTop = scroller.scrollHeight;
+  window.dispatchEvent(new Event('scroll'));
+  return scroller.scrollTop;
+})()
+"""
+
+
+_NEXT_PAGE_SCRIPT = r"""
+(() => {
+  const current = new URL(location.href);
+  const currentPage = parseInt(current.searchParams.get("pg") || "1", 10);
+  const nextPage = currentPage + 1;
+  const direct = document.querySelector("li.a-last:not(.a-disabled) a[href], .a-pagination .a-last:not(.a-disabled) a[href]");
+  if (direct) {
+    try { return new URL(direct.href, location.href).href; } catch {}
+  }
+  const links = Array.from(document.querySelectorAll("a[href]"));
+  for (const link of links) {
+    const text = `${link.innerText || ""} ${link.getAttribute("aria-label") || ""}`.trim().toLowerCase();
+    if (link.getAttribute("aria-disabled") === "true" || link.classList.contains("a-disabled")) continue;
+    let href;
+    try { href = new URL(link.href, location.href); } catch { continue; }
+    const linkPage = parseInt(href.searchParams.get("pg") || "0", 10);
+    if (text === "next" || text.includes("next") || text.includes("下一页") || linkPage === nextPage) {
+      return href.href;
+    }
+  }
+  if (currentPage < 2) {
+    current.searchParams.set("pg", String(nextPage));
+    current.pathname = current.pathname.replace(/\/ref=[^/?#]+/, `/ref=zg_bs_pg_${nextPage}`);
+    return current.href;
+  }
+  return "";
+})()
+"""
+
+
+_CLICK_NEXT_PAGE_SCRIPT = r"""
+(() => {
+  const selectors = [
+    "li.a-last:not(.a-disabled) a[href]",
+    ".a-pagination .a-last:not(.a-disabled) a[href]"
+  ];
+  for (const selector of selectors) {
+    const link = document.querySelector(selector);
+    if (link) {
+      link.scrollIntoView({block: "center", inline: "center"});
+      link.click();
+      return {clicked: true, href: link.href || "", method: selector};
+    }
+  }
+  const links = Array.from(document.querySelectorAll("a[href]"));
+  for (const link of links) {
+    const text = `${link.innerText || ""} ${link.getAttribute("aria-label") || ""}`.trim().toLowerCase();
+    const disabled = link.getAttribute("aria-disabled") === "true" || link.classList.contains("a-disabled") || link.closest(".a-disabled");
+    if (disabled) continue;
+    if (text === "next" || text.includes("next") || text.includes("下一页")) {
+      link.scrollIntoView({block: "center", inline: "center"});
+      link.click();
+      return {clicked: true, href: link.href || "", method: "text"};
+    }
+  }
+  return {clicked: false, href: "", method: ""};
+})()
+"""
+
+
+_SCROLL_BOTTOM_SCRIPT = r"""
+(() => {
+  const scroller = document.scrollingElement || document.documentElement || document.body;
+  scroller.scrollTop = scroller.scrollHeight;
+  window.dispatchEvent(new Event("scroll"));
+  return scroller.scrollTop;
+})()
+"""
+
+
+_SCROLL_MIDDLE_SCRIPT = r"""
+(() => {
+  const scroller = document.scrollingElement || document.documentElement || document.body;
+  scroller.scrollTop = Math.floor(scroller.scrollHeight * 0.5);
+  window.dispatchEvent(new Event("scroll"));
+  return scroller.scrollTop;
+})()
+"""
+
+
+_SCROLL_TO_PAGINATION_SCRIPT = r"""
+(() => {
+  const scroller = document.scrollingElement || document.documentElement || document.body;
+  const pagination =
+    document.querySelector("ul.a-pagination") ||
+    document.querySelector("li.a-last") ||
+    Array.from(document.querySelectorAll("a, span")).find((node) => {
+      const text = (node.innerText || node.textContent || "").trim().toLowerCase();
+      return text === "next" || text.includes("next page") || text === "previous";
+    });
+  if (pagination) {
+    pagination.scrollIntoView({block: "center", inline: "nearest"});
+  } else {
+    scroller.scrollTop = scroller.scrollHeight;
+  }
+  window.dispatchEvent(new Event("scroll"));
+  return {
+    top: scroller.scrollTop,
+    hasPagination: Boolean(pagination),
+    productCount: (document.body.innerText.match(/ASIN:\s*[A-Z0-9]{10}/g) || []).length
+  };
+})()
+"""
+
+
+_BOTTOM_NUDGE_SCRIPT = r"""
+(() => {
+  const scroller = document.scrollingElement || document.documentElement || document.body;
+  const pagination = document.querySelector("ul.a-pagination") || document.querySelector("li.a-last");
+  if (pagination) {
+    pagination.scrollIntoView({block: "end", inline: "nearest"});
+    scroller.scrollTop = Math.min(
+      scroller.scrollHeight - scroller.clientHeight,
+      scroller.scrollTop + Math.floor(window.innerHeight * 0.25)
+    );
+  } else {
+    scroller.scrollTop = Math.min(scroller.scrollHeight, scroller.scrollTop + Math.floor(window.innerHeight * 0.35));
+  }
+  window.dispatchEvent(new Event("scroll"));
+  return {
+    top: scroller.scrollTop,
+    productCount: (document.body.innerText.match(/ASIN:\s*[A-Z0-9]{10}/g) || []).length
+  };
+})()
+"""
+
+
+_SCROLL_THROUGH_PRODUCTS_SCRIPT = r"""
+(async () => {
+  const scroller = document.scrollingElement || document.documentElement || document.body;
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  scroller.scrollTop = 0;
+  window.dispatchEvent(new Event("scroll"));
+  await sleep(450);
+  const step = Math.max(420, Math.floor(window.innerHeight * 0.82));
+  let sawPagination = false;
+  for (let i = 0; i < 18; i += 1) {
+    const pagination = document.querySelector("ul.a-pagination") || document.querySelector("li.a-last");
+    if (pagination) {
+      const rect = pagination.getBoundingClientRect();
+      if (rect.top < window.innerHeight * 0.92) {
+        sawPagination = true;
+        pagination.scrollIntoView({block: "center", inline: "nearest"});
+        window.dispatchEvent(new Event("scroll"));
+        await sleep(900);
+        break;
+      }
+    }
+    const before = scroller.scrollTop;
+    scroller.scrollTop = Math.min(scroller.scrollHeight, scroller.scrollTop + step);
+    window.dispatchEvent(new Event("scroll"));
+    await sleep(650);
+    if (Math.abs(scroller.scrollTop - before) < 3) break;
+  }
+  if (!sawPagination) {
+    scroller.scrollTop = scroller.scrollHeight;
+    window.dispatchEvent(new Event("scroll"));
+    await sleep(900);
+  }
+  return {
+    top: scroller.scrollTop,
+    sawPagination,
+    productCount: (document.body.innerText.match(/ASIN:\s*[A-Z0-9]{10}/g) || []).length
+  };
+})()
+"""
+
+
+_SWEEP_PAGE_SCRIPT = r"""
+(async () => {
+  const scroller = document.scrollingElement || document.documentElement || document.body;
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const stops = [0, Math.floor(scroller.scrollHeight * 0.35), Math.floor(scroller.scrollHeight * 0.7), scroller.scrollHeight];
+  for (const stop of stops) {
+    scroller.scrollTop = stop;
+    window.dispatchEvent(new Event("scroll"));
+    await sleep(350);
+  }
+  return scroller.scrollTop;
+})()
+"""
+
+
+_NEXT_PAGE_SCRIPT = r"""
+(() => {
+  const direct = document.querySelector("li.a-last:not(.a-disabled) a[href], .a-pagination .a-last:not(.a-disabled) a[href]");
+  if (direct) {
+    try { return new URL(direct.href, location.href).href; } catch {}
+  }
+  const links = Array.from(document.querySelectorAll("a[href]"));
+  for (const link of links) {
+    const text = `${link.innerText || ""} ${link.getAttribute("aria-label") || ""}`.trim().toLowerCase();
+    const disabled = link.getAttribute("aria-disabled") === "true" || link.classList.contains("a-disabled") || link.closest(".a-disabled");
+    if (disabled) continue;
+    if (text === "next" || text.includes("next")) {
+      try { return new URL(link.href, location.href).href; } catch {}
+    }
+  }
+  return "";
+})()
+"""
+
+
+_CLICK_NEXT_PAGE_SCRIPT = r"""
+(() => {
+  const selectors = [
+    "li.a-last:not(.a-disabled) a[href]",
+    ".a-pagination .a-last:not(.a-disabled) a[href]"
+  ];
+  for (const selector of selectors) {
+    const link = document.querySelector(selector);
+    if (link) {
+      link.scrollIntoView({block: "center", inline: "center"});
+      link.click();
+      return {clicked: true, href: link.href || "", method: selector};
+    }
+  }
+  const links = Array.from(document.querySelectorAll("a[href]"));
+  for (const link of links) {
+    const text = `${link.innerText || ""} ${link.getAttribute("aria-label") || ""}`.trim().toLowerCase();
+    const disabled = link.getAttribute("aria-disabled") === "true" || link.classList.contains("a-disabled") || link.closest(".a-disabled");
+    if (disabled) continue;
+    if (text === "next" || text.includes("next")) {
+      link.scrollIntoView({block: "center", inline: "center"});
+      link.click();
+      return {clicked: true, href: link.href || "", method: "text"};
+    }
+  }
+  return {clicked: false, href: "", method: ""};
+})()
+"""
+
+
+def count_products(text: str) -> int:
+    return len(set(re.findall(r"ASIN:\s*([A-Z0-9]{10})", text)))
+
+
+def count_hydrated_products(text: str) -> int:
+    blocks = re.split(r"\n#\d+\n", "\n" + text)
+    hydrated = 0
+    for block in blocks:
+        if not re.search(r"ASIN:\s*[A-Z0-9]{10}", block):
+            continue
+        has_parent_sales = re.search(r"近30天销量\(父体\):\s*[0-9,]+", block)
+        has_sales_amount = re.search(r"销售额:\s*\$?[0-9,]+", block)
+        has_fba_fee = re.search(r"FBA费用:\s*\n?\$?[0-9]+(?:\.[0-9]+)?", block)
+        if has_parent_sales or has_sales_amount or has_fba_fee:
+            hydrated += 1
+    return hydrated
+
+
+def _report(progress, percent: int, message: str):
+    if progress:
+        progress(percent, message)
+
+
+_IMAGE_MAP_SCRIPT = r"""
+(() => {
+  const result = {};
+  const asinPattern = /(?:ASIN:?\s*|\/dp\/|\/gp\/product\/)([A-Z0-9]{10})/;
+  const images = Array.from(document.images || []);
+  for (const img of images) {
+    const src = img.currentSrc || img.src || "";
+    if (!src || src.startsWith("data:")) continue;
+    if (!/m\.media-amazon\.com\/images\/I\/|images-na\.ssl-images-amazon\.com\/images\/I\/|ssl-images-amazon\.com\/images\/I\/|images-amazon\.com\/images\/I\//i.test(src)) continue;
+    if (img.naturalWidth && img.naturalWidth < 80) continue;
+    if (img.naturalHeight && img.naturalHeight < 80) continue;
+    let asin = "";
+    let node = img;
+    for (let depth = 0; node && depth < 8; depth += 1, node = node.parentElement) {
+      const dataAsin = node.getAttribute && node.getAttribute("data-asin");
+      if (dataAsin && /^[A-Z0-9]{10}$/.test(dataAsin)) {
+        asin = dataAsin;
+        break;
+      }
+      const text = (node.innerText || node.textContent || "").slice(0, 2000);
+      const textMatch = text.match(asinPattern);
+      if (textMatch) {
+        asin = textMatch[1];
+        break;
+      }
+      const link = node.querySelector && node.querySelector('a[href*="/dp/"], a[href*="/gp/product/"]');
+      const href = link ? link.href : "";
+      const hrefMatch = href.match(asinPattern);
+      if (hrefMatch) {
+        asin = hrefMatch[1];
+        break;
+      }
+    }
+    if (asin && !result[asin]) result[asin] = src;
+  }
+  return result;
+})()
+"""
