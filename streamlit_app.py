@@ -380,6 +380,13 @@ def ensure_stop_collection_server() -> bool:
     return True
 
 
+def request_stop_collection() -> None:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    STOP_COLLECTION_FLAG.write_text("stop", encoding="utf-8")
+    st.session_state.last_collection_summary = "已请求停止采集：程序会在当前页面/小类结束后保留已完成数据。"
+    log("Stop collection requested from UI.")
+
+
 def render_stop_collection_button() -> None:
     server_ready = ensure_stop_collection_server()
     disabled_attr = "" if server_ready else "disabled"
@@ -2197,6 +2204,21 @@ st.markdown(
         border-radius: 8px;
         font-size: 14px;
         padding: 0 14px;
+        white-space: nowrap;
+    }
+    div[data-testid="stElementContainer"]:has(.collection-action-toolbar) + div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button p {
+        white-space: nowrap;
+    }
+    div[data-testid="stElementContainer"]:has(.collection-action-toolbar) + div[data-testid="stHorizontalBlock"] > div:nth-child(2) button {
+        background: #ffffff !important;
+        border: 1px solid #ff4b4b !important;
+        color: #ff4b4b !important;
+        font-weight: 700 !important;
+    }
+    div[data-testid="stElementContainer"]:has(.collection-action-toolbar) + div[data-testid="stHorizontalBlock"] > div:nth-child(2) button:hover {
+        background: #fff1f1 !important;
+        border-color: #ff4b4b !important;
+        color: #ff4b4b !important;
     }
     div[data-testid="stElementContainer"]:has(.collection-action-toolbar) + div[data-testid="stHorizontalBlock"] {
         flex-wrap: nowrap !important;
@@ -2205,15 +2227,12 @@ st.markdown(
         padding-bottom: 2px;
     }
     div[data-testid="stElementContainer"]:has(.collection-action-toolbar) + div[data-testid="stHorizontalBlock"] > div {
-        flex: 0 0 118px !important;
-        min-width: 118px !important;
+        flex: 0 0 108px !important;
+        min-width: 108px !important;
     }
     div[data-testid="stElementContainer"]:has(.collection-action-toolbar) + div[data-testid="stHorizontalBlock"] > div:last-child {
-        flex-basis: 140px !important;
-        min-width: 140px !important;
-    }
-    div[data-testid="stElementContainer"]:has(.collection-action-toolbar) + div[data-testid="stHorizontalBlock"] iframe {
-        min-height: 44px;
+        flex-basis: 132px !important;
+        min-width: 132px !important;
     }
     .filter-label {
         color: #5f6673;
@@ -3072,8 +3091,7 @@ with st.container(border=True):
     action_cols = st.columns([1.05, 1.05, 1.05, 1.05, 1.2], vertical_alignment="center")
     seller_cache_can_run = data_source != "卖家精灵插件" or chrome_ready
     run = action_cols[0].button(T["run"], type="primary", use_container_width=True, disabled=not seller_cache_can_run)
-    with action_cols[1]:
-        render_stop_collection_button()
+    action_cols[1].button("停止采集", use_container_width=True, on_click=request_stop_collection)
     apply_filter = action_cols[2].button("应用筛选", use_container_width=True, disabled=not st.session_state.raw_products)
     clear_filters = action_cols[3].button("清空筛选", use_container_width=True, on_click=reset_filter_widgets)
     load_last_raw = action_cols[4].button("载入上次采集", use_container_width=True)
