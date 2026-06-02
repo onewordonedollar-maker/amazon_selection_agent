@@ -446,10 +446,16 @@ def ensure_state():
         st.session_state.last_raw_products_message = ""
     if "category_search" not in st.session_state:
         st.session_state.category_search = ""
+    if "filter_auto_apply_requested" not in st.session_state:
+        st.session_state.filter_auto_apply_requested = False
 
 
 def log(message: str):
     st.session_state.run_log.append(f"{datetime.now().strftime('%H:%M:%S')}  {message}")
+
+
+def request_filter_auto_apply() -> None:
+    st.session_state.filter_auto_apply_requested = True
 
 
 def sync_product_selection_from_widgets(products):
@@ -1085,6 +1091,7 @@ def render_range_filter(title: str, key_prefix: str, min_default: str = "", max_
             value=min_default,
             placeholder="最小值",
             key=f"{key_prefix}_min",
+            on_change=request_filter_auto_apply,
             label_visibility="collapsed",
         )
     with cols[1]:
@@ -1095,6 +1102,7 @@ def render_range_filter(title: str, key_prefix: str, min_default: str = "", max_
             value=max_default,
             placeholder="最大值",
             key=f"{key_prefix}_max",
+            on_change=request_filter_auto_apply,
             label_visibility="collapsed",
         )
     if money:
@@ -3096,7 +3104,13 @@ with st.container(border=True):
     with filter_bottom[2]:
         st.markdown(f"<div class='filter-label'>{escape(T['launched_at'])} <span>?</span></div>", unsafe_allow_html=True)
         launch_options = ["不限", "近30天", "近60天", "近3个月", "近半年", "近1年", "近2年", "近1~2年"] if UI_LANG == "中文" else ["Any", "Last 30 days", "Last 60 days", "Last 3 months", "Last 6 months", "Last year", "Last 2 years", "1-2 years"]
-        launch_window = st.selectbox("上架时间", launch_options, key="filter_launch_window", label_visibility="collapsed")
+        launch_window = st.selectbox(
+            "上架时间",
+            launch_options,
+            key="filter_launch_window",
+            on_change=request_filter_auto_apply,
+            label_visibility="collapsed",
+        )
     current_filters = {
         "min_price": parse_filter_number(min_price_raw, 0.0),
         "max_price": parse_filter_number(max_price_raw, 999999.0),
@@ -3110,6 +3124,13 @@ with st.container(border=True):
         "max_bsr": parse_filter_number(max_bsr_raw, None, as_int=True),
         "launch_window": launch_window,
     }
+
+    if st.session_state.filter_auto_apply_requested and st.session_state.raw_products:
+        apply_filters_to_raw_pool(current_filters)
+        st.session_state.filter_auto_apply_requested = False
+        log(f"Auto-applied filters after filter input change: kept {len(st.session_state.products)}/{len(st.session_state.raw_products)}.")
+    elif st.session_state.filter_auto_apply_requested:
+        st.session_state.filter_auto_apply_requested = False
 
     st.markdown("<div class='collection-action-toolbar'></div>", unsafe_allow_html=True)
     action_cols = st.columns([1.05, 1.05, 1.05, 1.05, 1.2], vertical_alignment="center")
@@ -3142,6 +3163,7 @@ if load_last_raw:
     else:
         st.session_state.products = []
         st.session_state.last_collection_summary = ""
+    st.rerun()
 
 if load_history:
     st.session_state.show_category_dialog = False
@@ -3162,6 +3184,7 @@ if load_history:
                 f"已载入历史采集：{label}，{len(loaded_products)} 条，保存时间：{saved_at}。"
             )
             log(f"Loaded historical raw product pool: {len(loaded_products)} products from {selected_history_path}.")
+    st.rerun()
 
 if apply_filter:
     apply_filters_to_raw_pool(current_filters)
