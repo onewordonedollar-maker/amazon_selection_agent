@@ -3174,6 +3174,7 @@ with st.container(border=True):
 if clear_filters and st.session_state.raw_products:
     apply_filters_to_raw_pool(current_filters)
     log("Filter widgets reset and filters re-applied to raw product pool.")
+    st.rerun()
 
 if load_last_raw:
     st.session_state.show_category_dialog = False
@@ -3212,6 +3213,7 @@ if load_history:
 if apply_filter:
     apply_filters_to_raw_pool(current_filters)
     log(f"Re-applied filters to raw product pool: kept {len(st.session_state.products)}/{len(st.session_state.raw_products)}.")
+    st.rerun()
 
 if run:
     clear_stop_collection_flag()
