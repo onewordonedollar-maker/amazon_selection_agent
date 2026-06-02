@@ -3023,6 +3023,7 @@ with st.container(border=True):
         st.write(f"**{T['categories']}**")
         if st.button(
             f"选择类目（已选 {len(st.session_state.confirmed_category_paths)}）",
+            key="open_category_dialog_button",
             use_container_width=True,
         ):
             st.session_state.show_category_dialog = True
@@ -3073,7 +3074,7 @@ with st.container(border=True):
         history_cols = st.columns([3, 1], vertical_alignment="bottom")
         history_labels = [label for label, _ in history_options]
         selected_history_label = history_cols[0].selectbox("最近采集记录", history_labels, label_visibility="collapsed")
-        load_history = history_cols[1].button("载入该记录", use_container_width=True)
+        load_history = history_cols[1].button("载入该记录", key="load_history_record_button", use_container_width=True)
     else:
         selected_history_label = ""
         load_history = False
@@ -3113,11 +3114,11 @@ with st.container(border=True):
     st.markdown("<div class='collection-action-toolbar'></div>", unsafe_allow_html=True)
     action_cols = st.columns([1.05, 1.05, 1.05, 1.05, 1.2], vertical_alignment="center")
     seller_cache_can_run = data_source != "卖家精灵插件" or chrome_ready
-    run = action_cols[0].button(T["run"], type="primary", use_container_width=True, disabled=not seller_cache_can_run)
-    action_cols[1].button("停止采集", use_container_width=True, on_click=request_stop_collection)
-    apply_filter = action_cols[2].button("应用筛选", use_container_width=True, disabled=not st.session_state.raw_products)
-    clear_filters = action_cols[3].button("清空筛选", use_container_width=True, on_click=reset_filter_widgets)
-    load_last_raw = action_cols[4].button("载入上次采集", use_container_width=True)
+    run = action_cols[0].button(T["run"], key="run_collection_button", type="primary", use_container_width=True, disabled=not seller_cache_can_run)
+    action_cols[1].button("停止采集", key="stop_collection_button", use_container_width=True, on_click=request_stop_collection)
+    apply_filter = action_cols[2].button("应用筛选", key="apply_filter_button", use_container_width=True, disabled=not st.session_state.raw_products)
+    clear_filters = action_cols[3].button("清空筛选", key="clear_filters_button", use_container_width=True, on_click=reset_filter_widgets)
+    load_last_raw = action_cols[4].button("载入上次采集", key="load_last_raw_button", use_container_width=True)
 
     raw_count = len(st.session_state.raw_products)
     filtered_count = len(st.session_state.products)
@@ -3131,6 +3132,7 @@ if clear_filters and st.session_state.raw_products:
     log("Filter widgets reset and filters re-applied to raw product pool.")
 
 if load_last_raw:
+    st.session_state.show_category_dialog = False
     loaded_products, message = load_raw_products()
     st.session_state.raw_products = loaded_products
     st.session_state.last_raw_products_message = message
@@ -3142,6 +3144,7 @@ if load_last_raw:
         st.session_state.last_collection_summary = ""
 
 if load_history:
+    st.session_state.show_category_dialog = False
     selected_history_path = dict(history_options).get(selected_history_label)
     if selected_history_path:
         loaded_products, payload, error = load_raw_products_payload(selected_history_path)
