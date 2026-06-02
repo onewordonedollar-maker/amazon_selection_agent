@@ -3015,6 +3015,29 @@ st.markdown(
         .toolbar-meta {
             line-height: 32px;
         }
+        div[data-testid="stDialog"] [role="dialog"] {
+            height: min(82vh, 700px) !important;
+            width: min(96vw, 1320px) !important;
+        }
+        div[data-testid="stDialog"] div[data-testid="stHorizontalBlock"] {
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 8px !important;
+        }
+        div[data-testid="stDialog"] div[data-testid="stHorizontalBlock"] > div {
+            min-width: 0 !important;
+        }
+        div[data-testid="stDialog"] div[data-testid="stHorizontalBlock"] button {
+            min-width: 0 !important;
+        }
+        div[data-testid="stDialog"] .category-tree-label {
+            font-size: 13px;
+        }
+        div[data-testid="stDialog"] .category-count-badge {
+            font-size: 12px;
+            min-width: 38px;
+            padding: 0 4px;
+        }
     }
     </style>
     """,
