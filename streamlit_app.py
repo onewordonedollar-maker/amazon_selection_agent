@@ -85,6 +85,12 @@ SELLERSPRITE_EXPORT_COLUMNS = [
     ("error", "错误"),
 ]
 
+SELLERSPRITE_TABLE_COLUMNS = [
+    (field, header)
+    for field, header in SELLERSPRITE_EXPORT_COLUMNS
+    if field != "image_preview_formula"
+]
+
 
 st.set_page_config(
     page_title="Amazon Selection Agent",
@@ -1283,6 +1289,14 @@ def csv_bytes(products):
         row["image_preview_formula"] = image_formula(row.get("image_url", ""))
         writer.writerow({header: row.get(field, "") for field, header in SELLERSPRITE_EXPORT_COLUMNS})
     return output.getvalue().encode("utf-8-sig")
+
+
+def table_rows(products: list[Product]) -> list[dict]:
+    rows = []
+    for product in products:
+        row = asdict(product)
+        rows.append({header: row.get(field, "") for field, header in SELLERSPRITE_TABLE_COLUMNS})
+    return rows
 
 
 def image_formula(image_url: str) -> str:
@@ -3393,7 +3407,7 @@ with tab_cards:
 with tab_table:
     if products:
         st.dataframe(
-            [asdict(p) for p in products],
+            table_rows(products),
             use_container_width=True,
             hide_index=True,
         )
