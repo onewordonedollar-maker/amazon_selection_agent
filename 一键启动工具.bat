@@ -25,7 +25,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $r = Invoke-WebReq
 if errorlevel 1 (
   echo Streamlit is not running. Starting it now...
   start "Amazon Selection Agent - Streamlit" cmd /k ""%PYTHON_EXE%" -m streamlit run "%ROOT%streamlit_app.py" --server.port 8501 --server.headless true"
-  timeout /t 4 /nobreak >nul
+  powershell -NoProfile -Command "Start-Sleep -Seconds 4"
 ) else (
   echo Streamlit is already running.
 )
