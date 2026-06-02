@@ -3271,16 +3271,21 @@ if run:
                 log(f"SellerSprite plugin collection finished. Parsed {len(collected_products)} unique products from {len(refresh_results)} pages.")
         for product in collected_products:
             product.selected = False
-        st.session_state.raw_products = collected_products
-        apply_filters_to_raw_pool(filters)
         if collected_products:
+            st.session_state.raw_products = collected_products
+            apply_filters_to_raw_pool(filters)
             save_raw_products(collected_products, collection_label, target_url)
             st.session_state.last_raw_products_message = (
                 f"已保存原始采集池：{len(collected_products)} 条。最近 5 次采集会保留在本地。"
             )
         else:
             st.session_state.last_collection_summary = "本次没有解析到产品。请检查 Amazon 页面是否正常打开、卖家精灵插件是否已加载。"
-            st.session_state.last_raw_products_message = ""
+            if st.session_state.raw_products:
+                st.session_state.last_raw_products_message = (
+                    f"本次未解析到新产品，已保留当前原始采集池：{len(st.session_state.raw_products)} 条。"
+                )
+            else:
+                st.session_state.last_raw_products_message = ""
         log(
             "Filters applied: "
             f"price {filters['min_price']}-{filters['max_price']}, "
@@ -3306,9 +3311,11 @@ if run:
         log(f"Collection stopped by user. Kept {len(collected_products)} products.")
         st.warning(str(exc))
     except Exception as exc:
-        st.session_state.raw_products = []
-        st.session_state.products = []
         st.session_state.last_collection_summary = f"采集失败：{exc}"
+        if st.session_state.raw_products:
+            st.session_state.last_raw_products_message = (
+                f"采集失败，已保留当前原始采集池：{len(st.session_state.raw_products)} 条。"
+            )
         log(f"{data_source} collection failed: {exc}.")
         st.warning(f"{data_source} 实时采集失败：{exc}。请检查采集 Chrome、Amazon 登录、卖家精灵插件或类目链接。")
 
