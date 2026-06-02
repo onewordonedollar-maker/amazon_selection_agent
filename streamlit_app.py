@@ -426,6 +426,8 @@ def render_stop_collection_button() -> None:
 def ensure_state():
     if "raw_products" not in st.session_state:
         st.session_state.raw_products = []
+    if "collection_staged_raw_products" not in st.session_state:
+        st.session_state.collection_staged_raw_products = []
     if "products" not in st.session_state:
         st.session_state.products = []
     if "run_log" not in st.session_state:
@@ -1019,6 +1021,24 @@ def apply_filters_to_raw_pool(filters: dict) -> None:
         st.session_state.products,
         filters,
     )
+
+
+def stage_raw_products(products: list[Product]) -> None:
+    if not products:
+        return
+    staged_by_asin = {
+        product.asin: product
+        for product in st.session_state.get("collection_staged_raw_products", [])
+        if product.asin
+    }
+    for product in products:
+        if product.asin and product.asin not in staged_by_asin:
+            product.selected = False
+            staged_by_asin[product.asin] = product
+    staged_products = list(staged_by_asin.values())
+    st.session_state.collection_staged_raw_products = staged_products
+    st.session_state.raw_products = staged_products
+    st.session_state.last_raw_products_message = f"采集中已暂存原始采集池：{len(staged_products)} 条。"
 
 
 def filter_rejection_summary(products: list[Product], filters: dict) -> list[str]:
@@ -1840,6 +1860,7 @@ def collect_sellersprite_entry(
         for product in parsed_products:
             products_by_asin.setdefault(product.asin, product)
         added_count = len(products_by_asin) - before_count
+        stage_raw_products(list(products_by_asin.values()))
         if progress:
             progress(
                 99,
@@ -3145,6 +3166,7 @@ if apply_filter:
 
 if run:
     clear_stop_collection_flag()
+    st.session_state.collection_staged_raw_products = []
     filters = current_filters
     try:
         collected_products = []
@@ -3220,6 +3242,8 @@ if run:
             f"removed {len(collected_products) - len(st.session_state.products)}."
         )
     except CollectionStopped as exc:
+        if not collected_products:
+            collected_products = st.session_state.get("collection_staged_raw_products", [])
         if collected_products:
             for product in collected_products:
                 product.selected = False
