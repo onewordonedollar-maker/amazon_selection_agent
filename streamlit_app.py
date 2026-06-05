@@ -466,6 +466,52 @@ def log(message: str):
     st.session_state.run_log.append(f"{datetime.now().strftime('%H:%M:%S')}  {message}")
 
 
+def readable_log_line(line: str) -> str:
+    if line == "Ready.":
+        return "准备就绪。"
+    prefix = ""
+    message = line
+    if "  " in line:
+        prefix, message = line.split("  ", 1)
+        prefix = f"{prefix}  "
+    translated = message
+    if message.startswith("Stop requested while collection is idle"):
+        translated = "点击了停止采集，但当前没有正在运行的采集。"
+    elif message.startswith("Stop collection requested"):
+        translated = "已请求停止采集，程序会在当前页面结束后保存已完成结果。"
+    elif message.startswith("Loaded raw product pool from disk:"):
+        count = message.split(":", 1)[1].strip().split(" ", 1)[0]
+        translated = f"已载入最近一次原始采集池：{count} 条。"
+    elif message.startswith("Loaded historical raw product pool:"):
+        count = message.split(":", 1)[1].strip().split(" ", 1)[0]
+        translated = f"已载入历史原始采集池：{count} 条。"
+    elif message.startswith("Auto-applied filters after filter input change:"):
+        translated = "筛选条件变更后，已自动重新计算当前结果。"
+    elif message.startswith("Re-applied filters to raw product pool:"):
+        translated = "已按当前筛选条件重新计算产品列表。"
+    elif message.startswith("Filter widgets reset and filters re-applied"):
+        translated = "已清空筛选条件，并重新计算产品列表。"
+    elif message.startswith("Start batch category collection"):
+        translated = "开始批量采集已选择的类目入口。"
+    elif message.startswith("Open Amazon page and wait for SellerSprite plugin data:"):
+        label = message.split(":", 1)[1].strip()
+        translated = f"打开 Amazon 页面并等待卖家精灵加载：{label}。"
+    elif message.startswith("SellerSprite plugin data refresh:"):
+        translated = "卖家精灵页面数据读取完成，正在转成产品卡。"
+    elif message.startswith("SellerSprite plugin collection finished."):
+        translated = "本次卖家精灵采集已完成，产品已去重。"
+    elif message.startswith("Filters applied:"):
+        translated = "采集后已应用筛选条件，并更新产品列表。"
+    elif message.startswith("Collection stopped by user."):
+        translated = "采集已按用户请求停止，并保留已完成产品。"
+    elif " collection failed:" in message:
+        translated = f"采集失败：{message.split(' collection failed:', 1)[1].strip()}"
+    elif message.startswith("Copied ") and " ASIN" in message:
+        count = message.split(" ", 2)[1]
+        translated = f"已复制 {count} 个 ASIN。"
+    return prefix + translated
+
+
 def request_filter_auto_apply() -> None:
     st.session_state.filter_auto_apply_requested = True
 
@@ -3450,10 +3496,16 @@ with tab_table:
             mime="text/csv",
         )
     else:
-        st.info("暂无产品数据。" if UI_LANG == "中文" else "No products yet.")
+        if st.session_state.raw_products:
+            st.info("原始采集池已有产品，但没有符合当前筛选条件的结果。可以放宽筛选条件后点击“应用筛选”，不需要重新采集。")
+        elif st.session_state.last_collection_summary:
+            st.info("本次没有解析到产品，或当前类目确实没有可读取产品。请看上方采集提示和日志。")
+        else:
+            st.info("还没有产品数据。选择类目后点击“开始采集”。")
 
 with tab_log:
-    st.code("\n".join(st.session_state.run_log[-80:]))
+    st.caption("操作日志：用于回看载入、筛选、采集和停止等动作。")
+    st.code("\n".join(readable_log_line(line) for line in st.session_state.run_log[-80:]))
 
 
 
