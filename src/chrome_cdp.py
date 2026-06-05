@@ -647,29 +647,29 @@ def _capture_current_sellersprite_page(
     def page_has_enough_products() -> bool:
         return best_product_count >= expected_products and best_hydrated_count >= expected_products
 
-    _report(progress, 5, "\u9876\u90e8\u7b49\u5f85")
+    _report(progress, 5, "顶部加载：等待 Amazon 页面和卖家精灵插件出现（约 5 秒）")
     client.evaluate(_SCROLL_TOP_SCRIPT, timeout=10)
     time.sleep(5)
     observe_best()
-    _report(progress, 18, f"\u9876\u90e8\u68c0\u6d4b\uff1a{best_product_count}/{best_hydrated_count}")
+    _report(progress, 18, f"顶部检测：页面产品 {best_product_count} 条，卖家精灵字段完整 {best_hydrated_count} 条")
 
-    _report(progress, 35, "\u4e2d\u90e8\u7b49\u5f85")
+    _report(progress, 35, "中部加载：滚到页面中部，等待懒加载商品和插件字段（约 5 秒）")
     client.evaluate(_SCROLL_MIDDLE_SCRIPT, timeout=10)
     time.sleep(5)
     observe_best()
-    _report(progress, 48, f"\u4e2d\u90e8\u68c0\u6d4b\uff1a{best_product_count}/{best_hydrated_count}")
+    _report(progress, 48, f"中部检测：页面产品 {best_product_count} 条，卖家精灵字段完整 {best_hydrated_count} 条")
 
-    _report(progress, 65, "\u9875\u7801\u533a\u57df\u7b49\u5f85")
+    _report(progress, 65, "底部加载：滚到页码区域，触发本页剩余商品和插件字段（约 5 秒）")
     client.evaluate(_SCROLL_TO_PAGINATION_SCRIPT, timeout=10)
     time.sleep(5)
     observe_best()
-    _report(progress, 78, f"\u9875\u7801\u533a\u57df\u68c0\u6d4b\uff1a{best_product_count}/{best_hydrated_count}")
+    _report(progress, 78, f"底部检测：页面产品 {best_product_count} 条，卖家精灵字段完整 {best_hydrated_count} 条")
 
-    _report(progress, 86, "\u6700\u540e\u8865\u89e6\u53d1")
+    _report(progress, 86, "最后补触发：轻微补滚一次，避免底部商品漏加载（约 5 秒）")
     client.evaluate(_BOTTOM_NUDGE_SCRIPT, timeout=10)
     time.sleep(5)
     observe_best()
-    _report(progress, 90, f"\u6700\u540e\u68c0\u6d4b\uff1a{best_product_count}/{best_hydrated_count}")
+    _report(progress, 90, f"最后检测：页面产品 {best_product_count} 条，卖家精灵字段完整 {best_hydrated_count} 条")
     monitor_rounds = 2 if page_has_enough_products() else min(max_rounds, 8)
     for _round_index in range(monitor_rounds):
         text = client.evaluate("document.body ? document.body.innerText : ''", timeout=20) or ""
@@ -692,11 +692,11 @@ def _capture_current_sellersprite_page(
             best_hydrated_count = hydrated_count
             best_score = score
         percent = min(95, int((best_hydrated_count / max(expected_products, 1)) * 90) + 5)
-        wait_note = "\u786e\u8ba4" if page_has_enough_products() else "\u7b49\u5f85"
+        wait_note = "复查稳定性" if page_has_enough_products() else "继续等待插件字段"
         _report(
             progress,
             percent,
-            f"{wait_note}\uff1a{max(product_count, best_product_count)}/{best_hydrated_count}",
+            f"{wait_note}：页面产品 {max(product_count, best_product_count)} 条，卖家精灵字段完整 {best_hydrated_count} 条",
         )
         if page_has_enough_products():
             target_reached_rounds += 1
@@ -709,7 +709,7 @@ def _capture_current_sellersprite_page(
         time.sleep(wait_seconds)
     if not best_text:
         return ChromeRefreshResult(False, 0, 0, 0, source_url, "\u9875\u9762\u6587\u672c\u4e3a\u7a7a\uff0c\u53ef\u80fd\u9875\u9762\u672a\u52a0\u8f7d\u5b8c\u6210\u6216\u88ab\u9a8c\u8bc1\u7801\u62e6\u622a\u3002")
-    _report(progress, 96, "\u590d\u67e5\u6570\u636e")
+    _report(progress, 96, "复查数据：读取最终页面文本、图片和下一页按钮")
     final_text = client.evaluate("document.body ? document.body.innerText : ''", timeout=20) or ""
     final_images = client.evaluate(_IMAGE_MAP_SCRIPT, timeout=20) or {}
     _remember_sellersprite_snapshot(final_text, final_images, seen_texts, seen_images)
@@ -749,7 +749,7 @@ def _capture_current_sellersprite_page(
         "min_capture_seconds": min_capture_seconds,
     }
     meta_cache_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
-    _report(progress, 100, f"\u5b8c\u6210\uff1a{best_product_count}/{best_hydrated_count}")
+    _report(progress, 100, f"本页完成：页面产品 {best_product_count} 条，卖家精灵字段完整 {best_hydrated_count} 条")
     required_count = best_product_count or expected_products
     ok = best_hydrated_count >= required_count
     message = "\u5237\u65b0\u5b8c\u6210\u3002" if ok else "\u5df2\u4fdd\u5b58\u5f53\u524d\u9875\u9762\u6570\u636e\uff0c\u4f46\u5356\u5bb6\u7cbe\u7075\u8865\u5145\u5b57\u6bb5\u4ecd\u672a\u5b8c\u5168\u52a0\u8f7d\u3002"

@@ -387,6 +387,10 @@ def ensure_stop_collection_server() -> bool:
 
 
 def request_stop_collection() -> None:
+    if not st.session_state.get("collection_in_progress", False):
+        st.session_state.last_collection_summary = "当前没有正在运行的采集，无需停止。"
+        log("Stop requested while collection is idle; ignored.")
+        return
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     STOP_COLLECTION_FLAG.write_text("stop", encoding="utf-8")
     st.session_state.last_collection_summary = "已请求停止采集：程序会在当前页面/小类结束后保留已完成数据。"
@@ -454,6 +458,8 @@ def ensure_state():
         st.session_state.category_search = ""
     if "filter_auto_apply_requested" not in st.session_state:
         st.session_state.filter_auto_apply_requested = False
+    if "collection_in_progress" not in st.session_state:
+        st.session_state.collection_in_progress = False
 
 
 def log(message: str):
@@ -880,7 +886,7 @@ def sellersprite_cache_status_html(total: int, hydrated: int, chrome_ready: bool
             </div>
         </div>
         <div class="cache-progress"><span style="width:{percent}%"></span></div>
-        <div class="cache-foot"><strong>{total}</strong> 条产品，<strong>{hydrated}</strong> 条插件字段完整</div>
+        <div class="cache-foot"><strong>{total}</strong> 条产品，<strong>{hydrated}</strong> 条卖家精灵字段完整</div>
     </div>
     """
 
@@ -1869,7 +1875,7 @@ def collect_sellersprite_entry(
 
     def update_progress(percent: int, message: str):
         if progress:
-            progress(percent, f"{message}｜累计 {len(products_by_asin)} 条")
+            progress(percent, f"{message}｜当前入口已去重 {len(products_by_asin)} 条")
 
     def collect_page_products(page: int, refresh_result):
         nonlocal duplicate_pages
@@ -1886,7 +1892,7 @@ def collect_sellersprite_entry(
         if progress:
             progress(
                 99,
-                f"{page_name}｜本页解析 {len(parsed_products)} 条，新增 {added_count} 条，累计 {len(products_by_asin)} 条",
+                f"{page_name}转成产品卡：本页 {len(parsed_products)} 条，新增 ASIN {added_count} 条，当前入口已去重 {len(products_by_asin)} 条",
             )
         if page > 1 and parsed_products and added_count == 0:
             duplicate_pages += 1
@@ -1949,7 +1955,7 @@ def collect_sellersprite_entry_with_quality_retry(
     while not best_ok and retry_index < retry_limit:
         retry_index += 1
         if progress:
-            progress(99, f"{best_message}，自动补采 {retry_index}/{retry_limit}")
+            progress(99, f"{best_message}。正在自动补采第 {retry_index}/{retry_limit} 次。")
         log(f"{label}: {best_message}. Retrying collection {retry_index}/{retry_limit}.")
         retry_products, retry_results = collect_sellersprite_entry(
             target_url,
@@ -1970,7 +1976,7 @@ def collect_sellersprite_entry_with_quality_retry(
             best_ok, best_message = sellersprite_collection_quality(best_products, best_results)
         log(f"{label}: retry {retry_index}/{retry_limit} result: {retry_message}. best: {best_message}.")
     if progress and not best_ok:
-        progress(99, f"{best_message}，已保留当前可解析产品")
+        progress(99, f"{best_message}。已保留当前能解析到的产品。")
     return best_products, best_results, best_ok, best_message
 
 
@@ -1992,7 +1998,7 @@ def collect_sellersprite_batch(
     if not is_rank_category_url(seed_url):
         raise ValueError("当前链接不是具体榜单类目页。为避免自动跳类目，本次不会打开父类页继续发现链接。")
 
-    set_batch_progress(0, "正在采集当前已映射类目，不再自动打开其它类目链接...")
+    set_batch_progress(0, "当前入口开始采集：只打开已映射的具体 Amazon 榜单页。")
 
     def update_entry_progress(percent: int, message: str):
         set_batch_progress(percent, message)
@@ -2006,8 +2012,8 @@ def collect_sellersprite_batch(
         progress_label="当前类目",
     )
     if not quality_ok:
-        set_batch_progress(99, f"{quality_message}，疑似漏采；已保留当前可解析产品。")
-    set_batch_progress(100, f"当前类目采集完成：原始采集 {len(products)} 条，读取 {len(refresh_results)} 页。")
+        set_batch_progress(99, f"{quality_message}。疑似漏采，已保留当前能解析到的产品。")
+    set_batch_progress(100, f"当前入口完成：读取 {len(refresh_results)} 页，原始去重 {len(products)} 条。")
     return products
 
 
@@ -2079,7 +2085,7 @@ def collect_sellersprite_batch_from_seeds(
         seed_end = int((seed_index / len(seed_urls)) * 100)
         progress_bar.progress(
             seed_start,
-            text=f"入口 {seed_index}/{len(seed_urls)}｜总原始采集 {len(raw_by_asin)} 条",
+            text=f"准备采集小类 {seed_index}/{len(seed_urls)}：{seed_label}｜总原始去重 {len(raw_by_asin)} 条",
         )
         seed_products = collect_sellersprite_batch(
             amazon_url_for_list_type(seed_url, list_type),
@@ -2098,10 +2104,10 @@ def collect_sellersprite_batch_from_seeds(
             added += 1
         progress_bar.progress(
             seed_end,
-            text=f"入口 {seed_index}/{len(seed_urls)} 完成｜新增 {added} 条｜总原始采集 {len(raw_by_asin)} 条",
+            text=f"小类 {seed_index}/{len(seed_urls)} 完成：{seed_label}｜新增 ASIN {added} 条｜总原始去重 {len(raw_by_asin)} 条",
         )
         log(f"Seed {seed_index}/{len(seed_urls)} finished: {seed_label}. added raw {added}, total raw {len(raw_by_asin)}.")
-    progress_bar.progress(100, text=f"全部入口采集完成：总原始采集 {len(raw_by_asin)} 条。")
+    progress_bar.progress(100, text=f"全部小类采集完成：原始去重合计 {len(raw_by_asin)} 条。现在可以应用筛选或查看产品列表。")
     return list(raw_by_asin.values())
 
 
@@ -3103,10 +3109,12 @@ with st.container(border=True):
         seller_cache_total, seller_cache_hydrated = sellersprite_cache_hydration()
         chrome_ready = chrome_debugger_available()
         cache_warning = sellersprite_cache_warning()
-        if cache_warning:
+        if cache_warning and st.session_state.last_cache_refresh_message:
             st.warning(cache_warning)
         if not chrome_ready:
             st.warning("实时采集需要连接采集 Chrome。未连接时不会使用旧产品缓存替代，请先双击“一键启动工具.bat”。")
+        else:
+            st.info("采集 Chrome 已连接。点击“开始采集”后会打开 Amazon 页面，并等待卖家精灵插件加载后再读取产品。")
 
     if st.session_state.last_cache_refresh_message:
         st.info(st.session_state.last_cache_refresh_message)
@@ -3233,6 +3241,7 @@ if run:
     clear_stop_collection_flag()
     st.session_state.collection_staged_raw_products = []
     filters = current_filters
+    st.session_state.collection_in_progress = True
     try:
         collected_products = []
         if data_source == "卖家精灵插件":
@@ -3278,7 +3287,7 @@ if run:
                 )
                 st.session_state.last_cache_refresh_message = (
                     f"本入口采集完成：读取 {len(refresh_results)} 页，识别 {total_product_count} 条页面产品，"
-                    f"去重后 {len(collected_products)} 条，{total_hydrated_count} 条插件字段完整。{quality_message}"
+                    f"去重后 {len(collected_products)} 条，{total_hydrated_count} 条卖家精灵字段完整（销量/FBA/销售额等）。{quality_message}"
                 )
                 if not quality_ok:
                     st.session_state.last_cache_refresh_message += " 这次疑似漏采，建议保持采集 Chrome 前台可见后重试。"
@@ -3332,6 +3341,8 @@ if run:
             )
         log(f"{data_source} collection failed: {exc}.")
         st.warning(f"{data_source} 实时采集失败：{exc}。请检查采集 Chrome、Amazon 登录、卖家精灵插件或类目链接。")
+    finally:
+        st.session_state.collection_in_progress = False
 
 products = st.session_state.products
 sync_product_selection_from_widgets(products)
