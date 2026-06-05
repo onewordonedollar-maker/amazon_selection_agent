@@ -39,6 +39,7 @@ RAW_PRODUCTS_HISTORY_DIR = OUTPUT_DIR / "raw_products"
 RAW_PRODUCTS_HISTORY_INDEX = RAW_PRODUCTS_HISTORY_DIR / "index.json"
 RAW_PRODUCTS_HISTORY_LIMIT = 5
 STOP_COLLECTION_FLAG = OUTPUT_DIR / "stop_collection.flag"
+COLLECTION_RUNNING_FLAG = OUTPUT_DIR / "collection_running.flag"
 STOP_COLLECTION_PORT = 8765
 SELLERSPRITE_PLUGIN_FIELDS_TEXT = "价格、评分、评分数、排名、销量、销售额、FBA费用、毛利率、变体数、卖家数、包装信息"
 SELLERSPRITE_EXPECTED_PRODUCTS_PER_PAGE = 50
@@ -326,6 +327,22 @@ def clear_stop_collection_flag() -> None:
         pass
 
 
+def mark_collection_running() -> None:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    COLLECTION_RUNNING_FLAG.write_text("running", encoding="utf-8")
+
+
+def clear_collection_running_flag() -> None:
+    try:
+        COLLECTION_RUNNING_FLAG.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def collection_running() -> bool:
+    return COLLECTION_RUNNING_FLAG.exists()
+
+
 def stop_collection_requested() -> bool:
     return STOP_COLLECTION_FLAG.exists()
 
@@ -355,7 +372,10 @@ class StopCollectionHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/status":
-            self._send(200, "stopping" if stop_collection_requested() else "running")
+            if not collection_running():
+                self._send(200, "idle")
+            else:
+                self._send(200, "stopping" if stop_collection_requested() else "running")
             return
         self._send(404, "not found")
 
@@ -364,6 +384,9 @@ class StopCollectionHandler(BaseHTTPRequestHandler):
             origin = self.headers.get("Origin") or ""
             if origin and origin not in {"http://localhost:8501", "http://127.0.0.1:8501", "null"}:
                 self._send(403, "forbidden")
+                return
+            if not collection_running():
+                self._send(409, "not running")
                 return
             OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
             STOP_COLLECTION_FLAG.write_text("stop", encoding="utf-8")
@@ -387,7 +410,7 @@ def ensure_stop_collection_server() -> bool:
 
 
 def request_stop_collection() -> None:
-    if not st.session_state.get("collection_in_progress", False):
+    if not st.session_state.get("collection_in_progress", False) and not collection_running():
         st.session_state.last_collection_summary = "当前没有正在运行的采集，无需停止。"
         log("Stop requested while collection is idle; ignored.")
         return
@@ -421,7 +444,13 @@ def render_stop_collection_button() -> None:
             btn.textContent = "停止中...";
             try {{
               const res = await fetch("http://127.0.0.1:{STOP_COLLECTION_PORT}/stop", {{ method: "POST" }});
-              btn.textContent = res.ok ? "已请求停止" : "停止失败";
+              if (res.ok) {{
+                btn.textContent = "已请求停止";
+              }} else if (res.status === 409) {{
+                btn.textContent = "当前无采集";
+              }} else {{
+                btn.textContent = "停止失败";
+              }}
             }} catch (error) {{
               btn.textContent = "停止失败";
             }}
@@ -3296,7 +3325,8 @@ with st.container(border=True):
     action_cols = st.columns([1.05, 1.05, 1.05, 1.05, 1.2], vertical_alignment="center")
     seller_cache_can_run = data_source != "卖家精灵插件" or chrome_ready
     run = action_cols[0].button(T["run"], key="run_collection_button", type="primary", use_container_width=True, disabled=not seller_cache_can_run)
-    action_cols[1].button("停止采集", key="stop_collection_button", use_container_width=True, on_click=request_stop_collection)
+    with action_cols[1]:
+        render_stop_collection_button()
     apply_filter = action_cols[2].button("应用筛选", key="apply_filter_button", use_container_width=True, disabled=not st.session_state.raw_products)
     clear_filters = action_cols[3].button("清空筛选", key="clear_filters_button", use_container_width=True, on_click=reset_filter_widgets)
     load_last_raw = action_cols[4].button("载入最近采集池", key="load_last_raw_button", use_container_width=True)
@@ -3358,6 +3388,7 @@ if apply_filter:
 
 if run:
     clear_stop_collection_flag()
+    mark_collection_running()
     st.session_state.collection_staged_raw_products = []
     filters = current_filters
     st.session_state.collection_in_progress = True
@@ -3469,6 +3500,8 @@ if run:
     finally:
         clear_progress_bar(active_progress_bar)
         st.session_state.collection_in_progress = False
+        clear_collection_running_flag()
+        clear_stop_collection_flag()
 
 products = st.session_state.products
 sync_product_selection_from_widgets(products)
