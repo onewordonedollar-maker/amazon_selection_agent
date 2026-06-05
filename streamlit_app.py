@@ -1074,6 +1074,53 @@ def build_collection_summary(raw_products: list[Product], filtered_products: lis
     return summary
 
 
+def format_filter_value(value, money: bool = False) -> str:
+    if value is None:
+        return "不限"
+    if money:
+        return f"${float(value):g}"
+    return f"{int(value):,}" if isinstance(value, int) or float(value).is_integer() else f"{float(value):g}"
+
+
+def format_filter_range(label: str, min_value, max_value, money: bool = False) -> str:
+    if min_value is None and max_value is None:
+        return ""
+    if min_value is not None and max_value is not None:
+        return f"{label} {format_filter_value(min_value, money)} ~ {format_filter_value(max_value, money)}"
+    if min_value is not None:
+        return f"{label} >= {format_filter_value(min_value, money)}"
+    return f"{label} <= {format_filter_value(max_value, money)}"
+
+
+def build_filter_summary(filters: dict) -> str:
+    parts = [
+        format_filter_range("价格", filters.get("min_price"), filters.get("max_price"), money=True),
+        format_filter_range("评分数", filters.get("min_reviews"), filters.get("max_reviews")),
+        format_filter_range("月销量", filters.get("min_bought"), filters.get("max_bought")),
+        format_filter_range("子体销量", filters.get("min_child_sales"), filters.get("max_child_sales")),
+        format_filter_range("BSR", filters.get("min_bsr"), filters.get("max_bsr")),
+    ]
+    launch_window = filters.get("launch_window")
+    if launch_window and launch_window not in ("不限", "Any"):
+        parts.append(f"上架时间：{launch_window}")
+    parts = [part for part in parts if part]
+    return "当前筛选条件：" + ("；".join(parts) if parts else "不限")
+
+
+def build_collection_plan_text(selected_paths: list[str], custom_url: str, batch_collect: bool, seed_urls: list[tuple[str, str]]) -> str:
+    if custom_url:
+        return "采集计划：使用自定义 Amazon 榜单链接，读取第 1 页和第 2 页；采完后先进入原始池，再应用当前筛选条件。"
+    if not selected_paths:
+        return "采集计划：暂未选择类目。请选择类目，或填写一个具体 Amazon 榜单链接。"
+    if batch_collect or selection_contains_parent_category(selected_paths):
+        count = len(seed_urls)
+        if count:
+            suffix = "入口较多，预计耗时较长；建议先选择更小的类目试跑。" if count >= 20 else "每个入口读取第 1 页和第 2 页。"
+            return f"采集计划：批量采集 {count} 个已映射小类入口；{suffix} 原始产品去重后再应用筛选。"
+        return "采集计划：已选择批量采集，但当前类目还没有可用的小类链接映射。请换具体小类或填写自定义链接。"
+    return "采集计划：只采集当前选择中的第一个具体榜单入口，读取第 1 页和第 2 页；不会自动跳到其它类目。"
+
+
 def apply_filters_to_raw_pool(filters: dict) -> None:
     selected_by_asin = {product.asin: product.selected for product in st.session_state.products}
     filtered_products = apply_product_filters(st.session_state.raw_products, filters)
@@ -3215,6 +3262,7 @@ with st.container(border=True):
         "max_bsr": parse_filter_number(max_bsr_raw, None, as_int=True),
         "launch_window": launch_window,
     }
+    st.caption(build_filter_summary(current_filters))
 
     if st.session_state.filter_auto_apply_requested and st.session_state.raw_products:
         apply_filters_to_raw_pool(current_filters)
@@ -3223,6 +3271,7 @@ with st.container(border=True):
     elif st.session_state.filter_auto_apply_requested:
         st.session_state.filter_auto_apply_requested = False
 
+    st.info(build_collection_plan_text(selected_paths, custom_url, batch_category_collect, mapped_seed_urls))
     st.markdown("<div class='collection-action-toolbar'></div>", unsafe_allow_html=True)
     action_cols = st.columns([1.05, 1.05, 1.05, 1.05, 1.2], vertical_alignment="center")
     seller_cache_can_run = data_source != "卖家精灵插件" or chrome_ready
@@ -3235,7 +3284,10 @@ with st.container(border=True):
     raw_count = len(st.session_state.raw_products)
     filtered_count = len(st.session_state.products)
     if raw_count:
-        st.caption(f"原始采集池：{raw_count} 条｜当前筛选：{filtered_count} 条｜筛掉：{raw_count - filtered_count} 条")
+        st.caption(
+            f"原始采集池：{raw_count} 条｜当前筛选保留：{filtered_count} 条｜筛掉：{raw_count - filtered_count} 条。"
+            "如果只是调整筛选条件，点击“应用筛选”即可，不需要重新采集。"
+        )
     if st.session_state.last_raw_products_message:
         st.info(st.session_state.last_raw_products_message)
 
