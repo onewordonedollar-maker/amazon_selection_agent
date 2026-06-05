@@ -332,7 +332,7 @@ def stop_collection_requested() -> bool:
 
 def raise_if_stop_requested() -> None:
     if stop_collection_requested():
-        raise CollectionStopped("用户请求停止采集，已保留当前已完成的采集结果。")
+        raise CollectionStopped("用户请求停止采集：程序已在安全检查点停下，并保留当前已完成的原始采集池。")
 
 
 class StopCollectionHandler(BaseHTTPRequestHandler):
@@ -393,7 +393,7 @@ def request_stop_collection() -> None:
         return
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     STOP_COLLECTION_FLAG.write_text("stop", encoding="utf-8")
-    st.session_state.last_collection_summary = "已请求停止采集：程序会在当前页面/小类结束后保留已完成数据。"
+    st.session_state.last_collection_summary = "已请求停止采集：程序会在当前页面或当前小类结束后停下，并保留已完成的原始采集池。"
     log("Stop collection requested from UI.")
 
 
@@ -1164,7 +1164,10 @@ def stage_raw_products(products: list[Product]) -> None:
     staged_products = list(staged_by_asin.values())
     st.session_state.collection_staged_raw_products = staged_products
     st.session_state.raw_products = staged_products
-    st.session_state.last_raw_products_message = f"采集中已暂存原始采集池：{len(staged_products)} 条。"
+    st.session_state.last_raw_products_message = (
+        f"采集中暂存：当前已拿到原始产品 {len(staged_products)} 条。"
+        "如果中途停止，会保存这些已完成产品；采集完成后会再按当前筛选条件计算列表。"
+    )
 
 
 def filter_rejection_summary(products: list[Product], filters: dict) -> list[str]:
@@ -3448,7 +3451,10 @@ if run:
             st.session_state.raw_products = collected_products
             apply_filters_to_raw_pool(filters)
             save_raw_products(collected_products, collection_label if "collection_label" in locals() else "手动停止采集", target_url if "target_url" in locals() else "")
-            st.session_state.last_raw_products_message = f"采集已停止，已保存当前原始采集池：{len(collected_products)} 条。"
+            st.session_state.last_raw_products_message = (
+                f"采集已停止，已保存当前原始采集池：{len(collected_products)} 条。"
+                "页面列表已按当前筛选条件重新计算；可以继续查看/导出，也可以重新开始采集。"
+            )
         st.session_state.last_collection_summary = str(exc)
         log(f"Collection stopped by user. Kept {len(collected_products)} products.")
         st.warning(str(exc))
