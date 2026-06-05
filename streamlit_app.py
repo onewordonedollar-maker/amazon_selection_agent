@@ -627,12 +627,12 @@ def save_raw_products(products: list[Product], label: str = "", source_url: str 
 
 def load_raw_products() -> tuple[list[Product], str]:
     if not RAW_PRODUCTS_CACHE.exists():
-        return [], "还没有上次采集结果。"
+        return [], "本地还没有最近一次原始采集池。请先完成一次采集。"
     products, payload, error = load_raw_products_payload(RAW_PRODUCTS_CACHE)
     if error:
         return [], error.replace("采集结果", "上次采集结果")
     saved_at = payload.get("saved_at", "-")
-    return products, f"已载入上次原始采集池：{len(products)} 条，保存时间：{saved_at}。"
+    return products, f"已载入最近一次原始采集池：{len(products)} 条，保存时间：{saved_at}。载入后已按当前筛选条件重新计算。"
 
 
 def raw_history_options() -> list[tuple[str, Path]]:
@@ -646,6 +646,14 @@ def raw_history_options() -> list[tuple[str, Path]]:
         count = record.get("count", 0)
         options.append((f"{saved_at}｜{label}｜{count} 条", file_path))
     return options
+
+
+def empty_products_message() -> str:
+    if st.session_state.raw_products:
+        return "原始采集池已有产品，但没有符合当前筛选条件的结果。可以放宽筛选条件后点击“应用筛选”，不需要重新采集。"
+    if st.session_state.last_collection_summary:
+        return "本次没有解析到产品，或当前类目确实没有可读取产品。请看上方采集提示和日志。"
+    return "还没有产品数据。选择类目后点击“开始采集”。"
 
 
 def load_sellersprite_image_cache() -> dict[str, str]:
@@ -3217,10 +3225,12 @@ with st.container(border=True):
     st.divider()
     history_options = raw_history_options()
     if history_options:
+        st.write("**历史原始采集池**")
+        st.caption("本地只保留最近 5 次原始采集池；载入后会立即按当前筛选条件重新计算下方结果。")
         history_cols = st.columns([3, 1], vertical_alignment="bottom")
         history_labels = [label for label, _ in history_options]
-        selected_history_label = history_cols[0].selectbox("最近采集记录", history_labels, label_visibility="collapsed")
-        load_history = history_cols[1].button("载入该记录", key="load_history_record_button", use_container_width=True)
+        selected_history_label = history_cols[0].selectbox("历史原始采集池", history_labels, label_visibility="collapsed")
+        load_history = history_cols[1].button("载入选中记录", key="load_history_record_button", use_container_width=True)
     else:
         selected_history_label = ""
         load_history = False
@@ -3279,7 +3289,7 @@ with st.container(border=True):
     action_cols[1].button("停止采集", key="stop_collection_button", use_container_width=True, on_click=request_stop_collection)
     apply_filter = action_cols[2].button("应用筛选", key="apply_filter_button", use_container_width=True, disabled=not st.session_state.raw_products)
     clear_filters = action_cols[3].button("清空筛选", key="clear_filters_button", use_container_width=True, on_click=reset_filter_widgets)
-    load_last_raw = action_cols[4].button("载入上次采集", key="load_last_raw_button", use_container_width=True)
+    load_last_raw = action_cols[4].button("载入最近采集池", key="load_last_raw_button", use_container_width=True)
 
     raw_count = len(st.session_state.raw_products)
     filtered_count = len(st.session_state.products)
@@ -3325,7 +3335,8 @@ if load_history:
             saved_at = payload.get("saved_at", "-")
             label = payload.get("label") or "未命名采集"
             st.session_state.last_raw_products_message = (
-                f"已载入历史采集：{label}，{len(loaded_products)} 条，保存时间：{saved_at}。"
+                f"已载入历史原始采集池：{label}，{len(loaded_products)} 条，保存时间：{saved_at}。"
+                "载入后已按当前筛选条件重新计算。"
             )
             log(f"Loaded historical raw product pool: {len(loaded_products)} products from {selected_history_path}.")
     st.rerun()
@@ -3463,12 +3474,7 @@ tab_cards, tab_table, tab_log = st.tabs([T["cards"], T["table"], T["log"]])
 
 with tab_cards:
     if not products:
-        if st.session_state.raw_products:
-            st.info("原始采集池已有产品，但没有符合当前筛选条件的结果。可以放宽筛选条件后点击“应用筛选”，不需要重新采集。")
-        elif st.session_state.last_collection_summary:
-            st.info("本次没有解析到产品，或当前类目确实没有可读取产品。请看上方采集提示和日志。")
-        else:
-            st.info("还没有产品数据。选择类目后点击“开始采集”。")
+        st.info(empty_products_message())
     else:
         selected_products = [p for p in products if p.selected]
         toolbar = st.columns([0.45, 1.05, 1.05, 0.85, 1.0, 1.35, 0.9, 1.15, 0.95, 0.75], vertical_alignment="center")
@@ -3548,12 +3554,7 @@ with tab_table:
             mime="text/csv",
         )
     else:
-        if st.session_state.raw_products:
-            st.info("原始采集池已有产品，但没有符合当前筛选条件的结果。可以放宽筛选条件后点击“应用筛选”，不需要重新采集。")
-        elif st.session_state.last_collection_summary:
-            st.info("本次没有解析到产品，或当前类目确实没有可读取产品。请看上方采集提示和日志。")
-        else:
-            st.info("还没有产品数据。选择类目后点击“开始采集”。")
+        st.info(empty_products_message())
 
 with tab_log:
     st.caption("操作日志：用于回看载入、筛选、采集和停止等动作。")
