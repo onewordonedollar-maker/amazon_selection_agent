@@ -656,6 +656,13 @@ def empty_products_message() -> str:
     return "还没有产品数据。选择类目后点击“开始采集”。"
 
 
+def clear_progress_bar(progress_bar, delay_seconds: float = 0.6) -> None:
+    if not progress_bar:
+        return
+    time.sleep(delay_seconds)
+    progress_bar.empty()
+
+
 def load_sellersprite_image_cache() -> dict[str, str]:
     if not SELLERSPRITE_IMAGE_CACHE.exists():
         return {}
@@ -3351,6 +3358,7 @@ if run:
     st.session_state.collection_staged_raw_products = []
     filters = current_filters
     st.session_state.collection_in_progress = True
+    active_progress_bar = None
     try:
         collected_products = []
         if data_source == "卖家精灵插件":
@@ -3364,6 +3372,7 @@ if run:
                 seed_urls = resolve_category_seed_urls(selected_paths, custom_url)
                 log("Start batch category collection from category selection.")
                 batch_bar = st.progress(0, text="正在准备大类批量采集...")
+                active_progress_bar = batch_bar
                 collected_products = collect_sellersprite_batch_from_seeds(seed_urls, list_type, filters, batch_bar)
             else:
                 if selected_paths and (len(selected_paths) > 1 or any(find_exact_category_url(path) for path in selected_paths)):
@@ -3373,6 +3382,7 @@ if run:
                     )
                 log(f"Open Amazon page and wait for SellerSprite plugin data: {target_label}.")
                 refresh_bar = st.progress(0, text="正在打开 Amazon，并等待卖家精灵插件加载...")
+                active_progress_bar = refresh_bar
 
                 def update_run_refresh_progress(percent: int, message: str):
                     refresh_bar.progress(percent, text=message)
@@ -3451,6 +3461,7 @@ if run:
         log(f"{data_source} collection failed: {exc}.")
         st.warning(f"{data_source} 实时采集失败：{exc}。请检查采集 Chrome、Amazon 登录、卖家精灵插件或类目链接。")
     finally:
+        clear_progress_bar(active_progress_bar)
         st.session_state.collection_in_progress = False
 
 products = st.session_state.products
@@ -3459,6 +3470,8 @@ sync_product_selection_from_widgets(products)
 if st.session_state.last_collection_summary:
     if products:
         st.success(st.session_state.last_collection_summary)
+    elif st.session_state.raw_products:
+        st.info(st.session_state.last_collection_summary)
     else:
         st.warning(st.session_state.last_collection_summary)
 
