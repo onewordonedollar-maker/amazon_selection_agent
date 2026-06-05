@@ -2056,20 +2056,33 @@ def collect_sellersprite_entry(
 def sellersprite_collection_quality(products: list[Product], refresh_results: list) -> tuple[bool, str]:
     if not refresh_results:
         return False, "没有读取到页面"
-    page_counts = [max(int(getattr(result, "product_count", 0) or 0), int(getattr(result, "hydrated_count", 0) or 0)) for result in refresh_results]
-    page_detail = "，".join(f"第{i + 1}页 {count} 条" for i, count in enumerate(page_counts))
+    page_counts = [
+        max(int(getattr(result, "product_count", 0) or 0), int(getattr(result, "hydrated_count", 0) or 0))
+        for result in refresh_results
+    ]
+    page_detail = "；".join(
+        f"第{i + 1}页：页面产品 {int(getattr(result, 'product_count', 0) or 0)} 条，"
+        f"卖家精灵字段完整 {int(getattr(result, 'hydrated_count', 0) or 0)} 条"
+        for i, result in enumerate(refresh_results)
+    )
     if len(refresh_results) < 2:
-        return False, f"只读取到 {len(refresh_results)} 页（{page_detail}）"
+        return False, f"只读取到 {len(refresh_results)} 页；{page_detail}。需要第 1 页和第 2 页都完成，才算一个入口完整。"
     weak_pages = [
         f"第{i + 1}页 {count} 条"
         for i, count in enumerate(page_counts[:2])
         if count < SELLERSPRITE_MIN_PRODUCTS_PER_PAGE
     ]
     if weak_pages:
-        return False, f"页面产品数不足：{'，'.join(weak_pages)}；预期每页接近 {SELLERSPRITE_EXPECTED_PRODUCTS_PER_PAGE} 条"
+        return False, (
+            f"页面产品数偏少：{'，'.join(weak_pages)}；预期每页接近 {SELLERSPRITE_EXPECTED_PRODUCTS_PER_PAGE} 条。"
+            f"{page_detail}。"
+        )
     if len(products) < SELLERSPRITE_MIN_PRODUCTS_TWO_PAGES:
-        return False, f"两页去重后 {len(products)} 条，低于预期接近 100 条（{page_detail}）"
-    return True, f"两页采集正常：{len(products)} 条（{page_detail}）"
+        return False, (
+            f"两页页面数量接近正常，但去重 ASIN 只有 {len(products)} 条，低于预期接近 100 条。"
+            f"{page_detail}。这通常表示第二页重复、翻页失败，或页面没有完全加载。"
+        )
+    return True, f"两页采集正常：原始去重 {len(products)} 条。{page_detail}。"
 
 
 def collect_sellersprite_entry_with_quality_retry(
@@ -3439,8 +3452,9 @@ if run:
                     f"{total_image_count} images."
                 )
                 st.session_state.last_cache_refresh_message = (
-                    f"本入口采集完成：读取 {len(refresh_results)} 页，识别 {total_product_count} 条页面产品，"
-                    f"去重后 {len(collected_products)} 条，{total_hydrated_count} 条卖家精灵字段完整（销量/FBA/销售额等）。{quality_message}"
+                    f"本入口采集完成：读取 {len(refresh_results)} 页；页面识别 {total_product_count} 条；"
+                    f"原始去重 {len(collected_products)} 条；卖家精灵字段完整 {total_hydrated_count} 条（销量/FBA/销售额等）。"
+                    f"质量判断：{quality_message}"
                 )
                 if not quality_ok:
                     st.session_state.last_cache_refresh_message += " 这次疑似漏采，建议保持采集 Chrome 前台可见后重试。"
