@@ -692,6 +692,13 @@ def clear_progress_bar(progress_bar, delay_seconds: float = 0.6) -> None:
     progress_bar.empty()
 
 
+def reset_collection_run_messages() -> None:
+    st.session_state.last_cache_refresh_message = ""
+    st.session_state.last_collection_summary = ""
+    st.session_state.last_raw_products_message = ""
+    st.session_state.collection_staged_raw_products = []
+
+
 def load_sellersprite_image_cache() -> dict[str, str]:
     if not SELLERSPRITE_IMAGE_CACHE.exists():
         return {}
@@ -3421,8 +3428,8 @@ if apply_filter:
 
 if run:
     clear_stop_collection_flag()
+    reset_collection_run_messages()
     mark_collection_running()
-    st.session_state.collection_staged_raw_products = []
     filters = current_filters
     st.session_state.collection_in_progress = True
     active_progress_bar = None
