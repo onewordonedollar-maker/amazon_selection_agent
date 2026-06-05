@@ -2141,7 +2141,7 @@ def collect_sellersprite_batch(
     progress_start: int = 0,
     progress_end: int = 100,
     progress_prefix: str = "",
-) -> list[Product]:
+) -> tuple[list[Product], bool, str, int]:
     progress_span = max(1, progress_end - progress_start)
 
     def set_batch_progress(local_percent: int, text: str):
@@ -2167,7 +2167,7 @@ def collect_sellersprite_batch(
     if not quality_ok:
         set_batch_progress(99, f"{quality_message}。疑似漏采，已保留当前能解析到的产品。")
     set_batch_progress(100, f"当前入口完成：读取 {len(refresh_results)} 页，原始去重 {len(products)} 条。")
-    return products
+    return products, quality_ok, quality_message, len(refresh_results)
 
 
 def resolve_category_seed_urls(selected_paths: list[str], custom_url: str = "") -> list[tuple[str, str]]:
@@ -2230,6 +2230,7 @@ def collect_sellersprite_batch_from_seeds(
     if not seed_urls:
         raise ValueError("没有可采集的类目链接。请先选择已映射的类目，或填写自定义 Amazon Best Sellers 链接。")
     raw_by_asin: dict[str, Product] = {}
+    seed_summaries: list[dict] = []
     for seed_index, (seed_label, seed_url) in enumerate(seed_urls, start=1):
         if stop_collection_requested():
             log(f"Batch seed collection stopped before seed {seed_index}/{len(seed_urls)}.")
@@ -2240,7 +2241,7 @@ def collect_sellersprite_batch_from_seeds(
             seed_start,
             text=f"准备采集小类 {seed_index}/{len(seed_urls)}：{seed_label}｜总原始去重 {len(raw_by_asin)} 条",
         )
-        seed_products = collect_sellersprite_batch(
+        seed_products, quality_ok, quality_message, page_read_count = collect_sellersprite_batch(
             amazon_url_for_list_type(seed_url, list_type),
             list_type,
             filters,
@@ -2259,8 +2260,27 @@ def collect_sellersprite_batch_from_seeds(
             seed_end,
             text=f"小类 {seed_index}/{len(seed_urls)} 完成：{seed_label}｜新增 ASIN {added} 条｜总原始去重 {len(raw_by_asin)} 条",
         )
+        seed_summaries.append({
+            "label": seed_label,
+            "added": added,
+            "raw": len(seed_products),
+            "quality_ok": quality_ok,
+            "quality_message": quality_message,
+            "pages": page_read_count,
+        })
         log(f"Seed {seed_index}/{len(seed_urls)} finished: {seed_label}. added raw {added}, total raw {len(raw_by_asin)}.")
     progress_bar.progress(100, text=f"全部小类采集完成：原始去重合计 {len(raw_by_asin)} 条。现在可以应用筛选或查看产品列表。")
+    ok_count = sum(1 for item in seed_summaries if item["quality_ok"])
+    weak_items = [item for item in seed_summaries if not item["quality_ok"]]
+    weak_preview = "；".join(f"{item['label']}（{item['quality_message']}）" for item in weak_items[:3])
+    weak_suffix = f" 疑似漏采小类：{weak_preview}" if weak_preview else ""
+    if len(weak_items) > 3:
+        weak_suffix += f"；另有 {len(weak_items) - 3} 个小类请查看日志。"
+    st.session_state.last_cache_refresh_message = (
+        f"批量采集完成：计划入口 {len(seed_urls)} 个，实际处理 {len(seed_summaries)} 个；"
+        f"质量正常 {ok_count} 个，疑似漏采 {len(weak_items)} 个；原始去重合计 {len(raw_by_asin)} 条。"
+        f"{weak_suffix}"
+    )
     return list(raw_by_asin.values())
 
 
