@@ -3655,7 +3655,22 @@ if run:
         st.warning(str(exc))
     except Exception as exc:
         st.session_state.last_collection_summary = f"采集失败：{exc}"
-        if st.session_state.raw_products:
+        staged_products = st.session_state.get("collection_staged_raw_products", [])
+        if staged_products:
+            for product in staged_products:
+                product.selected = False
+            st.session_state.raw_products = staged_products
+            apply_filters_to_raw_pool(filters)
+            save_raw_products(
+                staged_products,
+                collection_label if "collection_label" in locals() else "部分采集失败",
+                target_url if "target_url" in locals() else "",
+            )
+            st.session_state.last_raw_products_message = (
+                f"采集过程中发生异常，但已保存当前完成的原始产品：{len(staged_products)} 条。"
+                "可以继续应用筛选、查看或导出；需要完整数据时再重新采集。"
+            )
+        elif st.session_state.raw_products:
             st.session_state.last_raw_products_message = (
                 f"采集失败，已保留当前原始采集池：{len(st.session_state.raw_products)} 条。"
             )

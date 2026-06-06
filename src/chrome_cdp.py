@@ -630,6 +630,20 @@ def refresh_sellersprite_cache_pages(
                 break
             _report(progress, 99, f"{page_name}\uff5c\u5207\u5230\u4e0b\u4e00\u9875")
             _interruptible_sleep(8, stop_check)
+            current_url = client.evaluate("location.href", timeout=10) or ""
+            _check_stop(stop_check)
+            if not is_rank_category_url(current_url):
+                results.append(
+                    ChromeRefreshResult(
+                        False,
+                        0,
+                        0,
+                        0,
+                        current_url,
+                        "\u7ffb\u9875\u540e\u79bb\u5f00\u4e86 Amazon \u699c\u5355\u7c7b\u76ee\u9875\uff0c\u5df2\u4e2d\u6b62\u5f53\u524d\u5165\u53e3\uff0c\u907f\u514d\u8bef\u91c7\u5546\u54c1\u8be6\u60c5\u9875\u3002",
+                    )
+                )
+                break
         return results
     finally:
         client.close()
@@ -836,7 +850,7 @@ _SCROLL_BOTTOM_SCRIPT = r"""
 """
 
 
-_NEXT_PAGE_SCRIPT = r"""
+_LEGACY_NEXT_PAGE_SCRIPT = r"""
 (() => {
   const current = new URL(location.href);
   const currentPage = parseInt(current.searchParams.get("pg") || "1", 10);
@@ -866,7 +880,7 @@ _NEXT_PAGE_SCRIPT = r"""
 """
 
 
-_CLICK_NEXT_PAGE_SCRIPT = r"""
+_LEGACY_CLICK_NEXT_PAGE_SCRIPT = r"""
 (() => {
   const selectors = [
     "li.a-last:not(.a-disabled) a[href]",
@@ -1031,18 +1045,21 @@ _SWEEP_PAGE_SCRIPT = r"""
 
 _NEXT_PAGE_SCRIPT = r"""
 (() => {
-  const direct = document.querySelector("li.a-last:not(.a-disabled) a[href], .a-pagination .a-last:not(.a-disabled) a[href]");
-  if (direct) {
-    try { return new URL(direct.href, location.href).href; } catch {}
-  }
-  const links = Array.from(document.querySelectorAll("a[href]"));
-  for (const link of links) {
-    const text = `${link.innerText || ""} ${link.getAttribute("aria-label") || ""}`.trim().toLowerCase();
-    const disabled = link.getAttribute("aria-disabled") === "true" || link.classList.contains("a-disabled") || link.closest(".a-disabled");
-    if (disabled) continue;
-    if (text === "next" || text.includes("next")) {
-      try { return new URL(link.href, location.href).href; } catch {}
-    }
+  const selectors = [
+    ".a-pagination li.a-last:not(.a-disabled) a[href]",
+    "li.a-last:not(.a-disabled) a[href]",
+    "a.s-pagination-next:not(.s-pagination-disabled)[href]",
+    "a[aria-label='Go to next page'][href]"
+  ];
+  for (const selector of selectors) {
+    const link = document.querySelector(selector);
+    if (!link) continue;
+    try {
+      const url = new URL(link.href, location.href);
+      const isRankPage = /\/gp\/(?:bestsellers|new-releases)\//.test(url.pathname);
+      const isNextPage = url.searchParams.get("pg") === "2" || /(?:^|_)pg_2(?:_|$)/.test(url.pathname + url.search);
+      if (isRankPage && isNextPage) return url.href;
+    } catch {}
   }
   return "";
 })()
@@ -1052,27 +1069,23 @@ _NEXT_PAGE_SCRIPT = r"""
 _CLICK_NEXT_PAGE_SCRIPT = r"""
 (() => {
   const selectors = [
+    ".a-pagination li.a-last:not(.a-disabled) a[href]",
     "li.a-last:not(.a-disabled) a[href]",
-    ".a-pagination .a-last:not(.a-disabled) a[href]"
+    "a.s-pagination-next:not(.s-pagination-disabled)[href]",
+    "a[aria-label='Go to next page'][href]"
   ];
   for (const selector of selectors) {
     const link = document.querySelector(selector);
-    if (link) {
+    if (!link) continue;
+    try {
+      const url = new URL(link.href, location.href);
+      const isRankPage = /\/gp\/(?:bestsellers|new-releases)\//.test(url.pathname);
+      const isNextPage = url.searchParams.get("pg") === "2" || /(?:^|_)pg_2(?:_|$)/.test(url.pathname + url.search);
+      if (!isRankPage || !isNextPage) continue;
       link.scrollIntoView({block: "center", inline: "center"});
       link.click();
-      return {clicked: true, href: link.href || "", method: selector};
-    }
-  }
-  const links = Array.from(document.querySelectorAll("a[href]"));
-  for (const link of links) {
-    const text = `${link.innerText || ""} ${link.getAttribute("aria-label") || ""}`.trim().toLowerCase();
-    const disabled = link.getAttribute("aria-disabled") === "true" || link.classList.contains("a-disabled") || link.closest(".a-disabled");
-    if (disabled) continue;
-    if (text === "next" || text.includes("next")) {
-      link.scrollIntoView({block: "center", inline: "center"});
-      link.click();
-      return {clicked: true, href: link.href || "", method: "text"};
-    }
+      return {clicked: true, href: url.href, method: selector};
+    } catch {}
   }
   return {clicked: false, href: "", method: ""};
 })()
