@@ -1815,6 +1815,7 @@ def render_category_dialog():
             label_visibility="collapsed",
         ).strip().lower()
         with st.container(height=300, border=False):
+            st.markdown("<span class='category-tree-scroll-anchor'></span>", unsafe_allow_html=True)
             selected_paths = render_category_tree(query)
     with right_panel:
         title_col, clear_col = st.columns([0.72, 0.28], vertical_alignment="center")
@@ -2597,8 +2598,8 @@ st.markdown(
     }
     div[data-testid="stDialog"] [role="dialog"] {
         border-radius: 4px !important;
-        height: min(70vh, 660px) !important;
-        max-height: calc(100vh - 48px) !important;
+        height: min(90dvh, 700px) !important;
+        max-height: calc(100dvh - 16px) !important;
         display: flex !important;
         flex-direction: column !important;
         overflow: hidden !important;
@@ -2699,6 +2700,17 @@ st.markdown(
         height: 30px;
         width: 100%;
     }
+    div[data-testid="stDialog"] div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"] .category-tree-scroll-anchor),
+    div[data-testid="stDialog"] div[data-testid="stVerticalBlock"]:has(> div[data-testid="stElementContainer"] .category-tree-scroll-anchor) {
+        height: 300px !important;
+        max-height: max(180px, calc(100dvh - 300px)) !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        scrollbar-gutter: stable;
+    }
+    .category-tree-scroll-anchor {
+        display: none;
+    }
     .category-dialog-body {
         max-height: min(62vh, 620px);
         overflow-y: auto;
@@ -2716,8 +2728,9 @@ st.markdown(
         background: #ffffff;
         border: 1px solid #e7ebf1;
         border-radius: 6px;
-        max-height: min(48vh, 470px);
-        min-height: 92px;
+        height: min(240px, calc(100dvh - 330px));
+        max-height: min(240px, calc(100dvh - 330px));
+        min-height: 100px;
         overflow-y: auto;
         padding: 12px;
     }
@@ -3265,7 +3278,8 @@ st.markdown(
             line-height: 32px;
         }
         div[data-testid="stDialog"] [role="dialog"] {
-            height: min(82vh, 700px) !important;
+            height: min(92dvh, 700px) !important;
+            max-height: calc(100dvh - 12px) !important;
             width: min(96vw, 1320px) !important;
         }
         div[data-testid="stDialog"] div[data-testid="stHorizontalBlock"] {
