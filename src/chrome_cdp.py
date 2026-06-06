@@ -16,6 +16,21 @@ from urllib.request import Request, urlopen
 
 
 DEFAULT_CDP_PORT = 9222
+
+
+def _check_stop(stop_check=None) -> None:
+    if stop_check:
+        stop_check()
+
+
+def _interruptible_sleep(seconds: float, stop_check=None, interval: float = 0.2) -> None:
+    deadline = time.monotonic() + max(0.0, seconds)
+    while True:
+        _check_stop(stop_check)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return
+        time.sleep(min(interval, remaining))
 SELLERSPRITE_MARKERS = ("近30天销量(父体)", "销售额", "FBA费用")
 
 
@@ -567,7 +582,9 @@ def refresh_sellersprite_cache_pages(
     page_count: int = 2,
     progress=None,
     page_callback=None,
+    stop_check=None,
 ) -> list[ChromeRefreshResult]:
+    _check_stop(stop_check)
     if not is_rank_category_url(url):
         return [ChromeRefreshResult(False, 0, 0, 0, url, "\u8df3\u8fc7\u975e\u5177\u4f53\u699c\u5355\u7c7b\u76ee\u9875\uff1a\u8fd9\u7c7b\u603b\u5165\u53e3\u9875\u5356\u5bb6\u7cbe\u7075\u4e0d\u4f1a\u52a0\u8f7d\u4ea7\u54c1\u6570\u636e\u3002")]
     if not chrome_debugger_available(port):
@@ -584,6 +601,7 @@ def refresh_sellersprite_cache_pages(
         client.command("Runtime.enable")
         client.command("Page.enable")
         for page in range(1, page_count + 1):
+            _check_stop(stop_check)
             page_name = "\u7b2c\u4e00\u9875" if page == 1 else "\u7b2c\u4e8c\u9875" if page == 2 else f"\u7b2c {page} \u9875"
 
             def page_progress(percent: int, message: str, page_name=page_name):
@@ -596,18 +614,22 @@ def refresh_sellersprite_cache_pages(
                 meta_cache_path,
                 expected_products=expected_products,
                 progress=page_progress,
+                stop_check=stop_check,
             )
+            _check_stop(stop_check)
             results.append(result)
             if page_callback:
                 page_callback(page, result)
+            _check_stop(stop_check)
             if page >= page_count:
                 break
             clicked = client.evaluate(_CLICK_NEXT_PAGE_SCRIPT, timeout=10)
+            _check_stop(stop_check)
             if not isinstance(clicked, dict) or not clicked.get("clicked"):
                 results.append(ChromeRefreshResult(False, 0, 0, 0, result.source_url, "\u672a\u627e\u5230\u53ef\u70b9\u51fb\u7684\u4e0b\u4e00\u9875\u6309\u94ae\u3002"))
                 break
             _report(progress, 99, f"{page_name}\uff5c\u5207\u5230\u4e0b\u4e00\u9875")
-            time.sleep(8)
+            _interruptible_sleep(8, stop_check)
         return results
     finally:
         client.close()
@@ -624,7 +646,9 @@ def _capture_current_sellersprite_page(
     wait_seconds: float = 2.5,
     min_capture_seconds: float = 25.0,
     progress=None,
+    stop_check=None,
 ) -> ChromeRefreshResult:
+    _check_stop(stop_check)
     source_url = client.evaluate("location.href", timeout=10) or ""
     best_text = ""
     best_images: dict[str, str] = {}
@@ -640,38 +664,41 @@ def _capture_current_sellersprite_page(
 
     def observe_best():
         nonlocal best_text, best_images, best_product_count, best_hydrated_count, best_score
+        _check_stop(stop_check)
         best_text, best_images, best_product_count, best_hydrated_count, best_score = _observe_sellersprite_page(
             client, best_text, best_images, best_product_count, best_hydrated_count, best_score, seen_texts, seen_images
         )
+        _check_stop(stop_check)
 
     def page_has_enough_products() -> bool:
         return best_product_count >= expected_products and best_hydrated_count >= expected_products
 
     _report(progress, 5, "顶部加载：等待 Amazon 页面和卖家精灵插件出现（约 5 秒）")
     client.evaluate(_SCROLL_TOP_SCRIPT, timeout=10)
-    time.sleep(5)
+    _interruptible_sleep(5, stop_check)
     observe_best()
     _report(progress, 18, f"顶部检测：页面产品 {best_product_count} 条，卖家精灵字段完整 {best_hydrated_count} 条")
 
     _report(progress, 35, "中部加载：滚到页面中部，等待懒加载商品和插件字段（约 5 秒）")
     client.evaluate(_SCROLL_MIDDLE_SCRIPT, timeout=10)
-    time.sleep(5)
+    _interruptible_sleep(5, stop_check)
     observe_best()
     _report(progress, 48, f"中部检测：页面产品 {best_product_count} 条，卖家精灵字段完整 {best_hydrated_count} 条")
 
     _report(progress, 65, "底部加载：滚到页码区域，触发本页剩余商品和插件字段（约 5 秒）")
     client.evaluate(_SCROLL_TO_PAGINATION_SCRIPT, timeout=10)
-    time.sleep(5)
+    _interruptible_sleep(5, stop_check)
     observe_best()
     _report(progress, 78, f"底部检测：页面产品 {best_product_count} 条，卖家精灵字段完整 {best_hydrated_count} 条")
 
     _report(progress, 86, "最后补触发：轻微补滚一次，避免底部商品漏加载（约 5 秒）")
     client.evaluate(_BOTTOM_NUDGE_SCRIPT, timeout=10)
-    time.sleep(5)
+    _interruptible_sleep(5, stop_check)
     observe_best()
     _report(progress, 90, f"最后检测：页面产品 {best_product_count} 条，卖家精灵字段完整 {best_hydrated_count} 条")
     monitor_rounds = 2 if page_has_enough_products() else min(max_rounds, 8)
     for _round_index in range(monitor_rounds):
+        _check_stop(stop_check)
         text = client.evaluate("document.body ? document.body.innerText : ''", timeout=20) or ""
         images = client.evaluate(_IMAGE_MAP_SCRIPT, timeout=20) or {}
         _remember_sellersprite_snapshot(text, images, seen_texts, seen_images)
@@ -706,7 +733,8 @@ def _capture_current_sellersprite_page(
             and stable_rounds >= 1
         ):
             break
-        time.sleep(wait_seconds)
+        _interruptible_sleep(wait_seconds, stop_check)
+    _check_stop(stop_check)
     if not best_text:
         return ChromeRefreshResult(False, 0, 0, 0, source_url, "\u9875\u9762\u6587\u672c\u4e3a\u7a7a\uff0c\u53ef\u80fd\u9875\u9762\u672a\u52a0\u8f7d\u5b8c\u6210\u6216\u88ab\u9a8c\u8bc1\u7801\u62e6\u622a\u3002")
     _report(progress, 96, "复查数据：读取最终页面文本、图片和下一页按钮")

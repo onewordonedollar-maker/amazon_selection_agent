@@ -2072,11 +2072,13 @@ def collect_sellersprite_entry(
     refresh_results = []
 
     def update_progress(percent: int, message: str):
+        raise_if_stop_requested()
         if progress:
             progress(percent, f"{message}｜当前入口已去重 {len(products_by_asin)} 条")
 
     def collect_page_products(page: int, refresh_result):
         nonlocal duplicate_pages
+        raise_if_stop_requested()
         refresh_results.append(refresh_result)
         if not refresh_result.ok and not refresh_result.product_count:
             raise RuntimeError(refresh_result.message)
@@ -2105,6 +2107,7 @@ def collect_sellersprite_entry(
         page_count=page_count,
         progress=update_progress,
         page_callback=collect_page_products,
+        stop_check=raise_if_stop_requested,
     )
     if duplicate_pages:
         log(f"{progress_label or target_url}: {duplicate_pages} duplicated page(s) detected during collection.")
@@ -2164,6 +2167,7 @@ def collect_sellersprite_entry_with_quality_retry(
     label = progress_label or target_url
     retry_index = 0
     while not best_ok and retry_index < retry_limit:
+        raise_if_stop_requested()
         retry_index += 1
         if progress:
             progress(99, f"{best_message}。正在自动补采第 {retry_index}/{retry_limit} 次。")
@@ -2204,6 +2208,7 @@ def collect_sellersprite_batch(
     progress_span = max(1, progress_end - progress_start)
 
     def set_batch_progress(local_percent: int, text: str):
+        raise_if_stop_requested()
         global_percent = min(100, progress_start + int((max(0, min(100, local_percent)) / 100) * progress_span))
         progress_bar.progress(global_percent, text=text)
 
@@ -2299,31 +2304,36 @@ def collect_sellersprite_batch_from_seeds(
     st.session_state.collection_total_raw_count = 0
     update_collection_total_status(total_status_placeholder)
     for seed_index, (seed_label, seed_url) in enumerate(seed_urls, start=1):
-        if stop_collection_requested():
-            log(f"Batch seed collection stopped before seed {seed_index}/{len(seed_urls)}.")
-            break
+        raise_if_stop_requested()
         seed_start = int(((seed_index - 1) / len(seed_urls)) * 100)
         seed_end = int((seed_index / len(seed_urls)) * 100)
         progress_bar.progress(
             seed_start,
             text=f"准备采集小类 {seed_index}/{len(seed_urls)}：{seed_label}｜总原始去重 {len(raw_by_asin)} 条",
         )
-        seed_products, quality_ok, quality_message, page_read_count = collect_sellersprite_batch(
-            amazon_url_for_list_type(seed_url, list_type),
-            list_type,
-            filters,
-            progress_bar,
-            progress_start=seed_start,
-            progress_end=seed_end,
-            progress_prefix="",
-            total_status_placeholder=total_status_placeholder,
-        )
+        try:
+            seed_products, quality_ok, quality_message, page_read_count = collect_sellersprite_batch(
+                amazon_url_for_list_type(seed_url, list_type),
+                list_type,
+                filters,
+                progress_bar,
+                progress_start=seed_start,
+                progress_end=seed_end,
+                progress_prefix="",
+                total_status_placeholder=total_status_placeholder,
+            )
+        except CollectionStopped:
+            for product in st.session_state.get("collection_staged_raw_products", []):
+                raw_by_asin.setdefault(product.asin, product)
+            stage_raw_products(list(raw_by_asin.values()))
+            raise
         added = 0
         for product in seed_products:
             if product.asin in raw_by_asin:
                 continue
             raw_by_asin[product.asin] = product
             added += 1
+        stage_raw_products(list(raw_by_asin.values()))
         progress_bar.progress(
             seed_end,
             text=f"小类 {seed_index}/{len(seed_urls)} 完成：{seed_label}｜新增 ASIN {added} 条｜总原始去重 {len(raw_by_asin)} 条",
@@ -2340,6 +2350,7 @@ def collect_sellersprite_batch_from_seeds(
         st.session_state.collection_total_raw_count = len(raw_by_asin)
         update_collection_total_status(total_status_placeholder)
         log(f"Seed {seed_index}/{len(seed_urls)} finished: {seed_label}. added raw {added}, total raw {len(raw_by_asin)}.")
+    raise_if_stop_requested()
     progress_bar.progress(100, text=f"全部小类采集完成：原始去重合计 {len(raw_by_asin)} 条。现在可以应用筛选或查看产品列表。")
     ok_count = sum(1 for item in seed_summaries if item["quality_ok"])
     weak_items = [item for item in seed_summaries if not item["quality_ok"]]
