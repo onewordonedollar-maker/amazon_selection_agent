@@ -1050,6 +1050,10 @@ def detect_risk(title: str, brand: str) -> str:
 
 
 def score_product(rank, price, rating, reviews, bought, risks, min_price, max_price, max_reviews, min_bought):
+    min_price = 0.0 if min_price is None else min_price
+    max_price = float("inf") if max_price is None else max_price
+    max_reviews = float("inf") if max_reviews is None else max_reviews
+    min_bought = 0 if min_bought is None else min_bought
     score = 50
     reasons = []
 
@@ -1114,10 +1118,6 @@ def in_optional_range(value, min_value=None, max_value=None) -> bool:
     return True
 
 
-def has_active_range(min_value=None, max_value=None) -> bool:
-    return min_value is not None or max_value is not None
-
-
 def launched_at_matches(value: str, filter_value: str) -> bool:
     if filter_value in ("不限", "Any"):
         return True
@@ -1148,10 +1148,6 @@ def launched_at_matches(value: str, filter_value: str) -> bool:
 
 
 def product_matches_filters(product: Product, filters: dict) -> bool:
-    if has_active_range(filters["min_child_sales"], filters["max_child_sales"]) and product.child_monthly_sales <= 0:
-        return False
-    if has_active_range(filters["min_bsr"], filters["max_bsr"]) and product.bsr_rank <= 0:
-        return False
     return (
         in_optional_range(product.price, filters["min_price"], filters["max_price"])
         and in_optional_range(product.review_count, filters["min_reviews"], filters["max_reviews"])
@@ -3566,11 +3562,11 @@ with st.container(border=True):
             disabled=collection_locked,
         )
     current_filters = {
-        "min_price": parse_filter_number(min_price_raw, 0.0),
-        "max_price": parse_filter_number(max_price_raw, 999999.0),
+        "min_price": parse_filter_number(min_price_raw, None),
+        "max_price": parse_filter_number(max_price_raw, None),
         "min_reviews": parse_filter_number(min_reviews_raw, None, as_int=True),
-        "max_reviews": parse_filter_number(max_reviews_raw, 999999999, as_int=True),
-        "min_bought": parse_filter_number(min_bought_raw, 0, as_int=True),
+        "max_reviews": parse_filter_number(max_reviews_raw, None, as_int=True),
+        "min_bought": parse_filter_number(min_bought_raw, None, as_int=True),
         "max_bought": parse_filter_number(max_bought_raw, None, as_int=True),
         "min_child_sales": parse_filter_number(min_child_sales_raw, None, as_int=True),
         "max_child_sales": parse_filter_number(max_child_sales_raw, None, as_int=True),
