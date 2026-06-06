@@ -1197,7 +1197,7 @@ def build_collection_plan_text(selected_paths: list[str], custom_url: str, batch
         if count:
             suffix = "入口较多，预计耗时较长；建议先选择更小的类目试跑。" if count >= 20 else "每个入口读取第 1 页和第 2 页。"
             return f"采集计划：批量采集 {count} 个已映射小类入口；{suffix} 原始产品去重后再应用筛选。"
-        return "采集计划：已选择批量采集，但当前类目还没有可用的小类链接映射。请换具体小类或填写自定义链接。"
+        return "采集计划：开始采集时展开当前选择，并准备已映射的小类入口；每个入口读取第 1 页和第 2 页。"
     return "采集计划：只采集当前选择中的第一个具体榜单入口，读取第 1 页和第 2 页；不会自动跳到其它类目。"
 
 
@@ -1620,6 +1620,21 @@ def category_path_parts(path: str) -> list[str]:
     return [part.strip() for part in path.split(">") if part.strip()]
 
 
+def compact_category_paths(paths: list[str]) -> list[str]:
+    unique_paths = list(dict.fromkeys(path for path in paths if path))
+    order_by_path = {path: index for index, path in enumerate(unique_paths)}
+    ordered_paths = sorted(unique_paths, key=lambda path: (path.count(" > "), order_by_path[path]))
+    compact: list[str] = []
+    compact_set: set[str] = set()
+    for path in ordered_paths:
+        parts = path.split(" > ")
+        if any(" > ".join(parts[:depth]) in compact_set for depth in range(1, len(parts))):
+            continue
+        compact.append(path)
+        compact_set.add(path)
+    return compact
+
+
 def get_category_node(path: str, tree: dict | None = None) -> dict:
     node = None
     current = display_categories() if tree is None else tree
@@ -1701,19 +1716,15 @@ def selected_category_paths_from_state(tree: dict | None = None, prefix: str = "
         return []
     seen.add(tree_id)
     selected_paths = []
-    selected_seen = set()
     for name, node in source_tree.items():
         path = f"{prefix} > {name}" if prefix else name
         if st.session_state.get(category_widget_key("cat_sel", path), False):
-            for branch_path in iter_category_branch_paths(path, node):
-                if branch_path not in selected_seen:
-                    selected_paths.append(branch_path)
-                    selected_seen.add(branch_path)
+            # Keep the confirmed selection compact. A checked parent already
+            # represents its full branch; leaf expansion happens only when
+            # building the collection plan.
+            selected_paths.append(path)
             continue
-        for branch_path in selected_category_paths_from_state(node.get("children", {}), path, seen):
-            if branch_path not in selected_seen:
-                selected_paths.append(branch_path)
-                selected_seen.add(branch_path)
+        selected_paths.extend(selected_category_paths_from_state(node.get("children", {}), path, seen))
     return selected_paths
 
 
@@ -1725,7 +1736,11 @@ def render_category_row(path: str, name: str, node: dict, depth: int, selected_p
     if expand_key not in st.session_state:
         st.session_state[expand_key] = False
     if select_key not in st.session_state:
-        st.session_state[select_key] = all_categories or path in confirmed
+        selected_by_confirmed_parent = any(
+            path == confirmed_path or path.startswith(f"{confirmed_path} > ")
+            for confirmed_path in confirmed
+        )
+        st.session_state[select_key] = all_categories or selected_by_confirmed_parent
 
     if all_categories:
         st.session_state[select_key] = True
@@ -1837,7 +1852,7 @@ def render_category_dialog():
         st.session_state.show_category_dialog = False
         st.rerun()
     if confirm_col.button("确认选择", type="primary", use_container_width=True):
-        st.session_state.confirmed_category_paths = selected_paths
+        st.session_state.confirmed_category_paths = compact_category_paths(selected_paths)
         st.session_state.show_category_dialog = False
         st.rerun()
 
@@ -2229,12 +2244,10 @@ def resolve_category_seed_urls(selected_paths: list[str], custom_url: str = "") 
 
 
 def collection_seed_paths(selected_paths: list[str]) -> list[str]:
-    selected_set = set(selected_paths)
+    selected_paths = compact_category_paths(selected_paths)
     leaf_paths: list[str] = []
     seen: set[str] = set()
     for path in selected_paths:
-        if any(other != path and other.startswith(f"{path} > ") for other in selected_set):
-            continue
         node = get_category_node(path)
         expanded_paths = list(iter_category_leaf_paths(path, node)) if node else [path]
         for leaf_path in expanded_paths:
@@ -2247,11 +2260,12 @@ def collection_seed_paths(selected_paths: list[str]) -> list[str]:
 def selection_contains_parent_category(selected_paths: list[str]) -> bool:
     selected_set = set(selected_paths)
     has_selected_descendants = any(
-        any(other != path and other.startswith(f"{path} > ") for other in selected_set)
-        for path in selected_paths
+        any(" > ".join(path.split(" > ")[:depth]) in selected_set for depth in range(1, len(path.split(" > "))))
+        for path in selected_set
     )
-    likely_parent_depth = any(path.count(" > ") <= 1 for path in selected_paths)
-    return has_selected_descendants or likely_parent_depth
+    category_tree = display_categories()
+    has_children = any(bool(get_category_node(path, category_tree).get("children")) for path in selected_paths)
+    return has_selected_descendants or has_children
 
 
 def resolve_primary_collection_url(selected_paths: list[str], custom_url: str = "") -> tuple[str, str]:
@@ -3307,6 +3321,10 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+compacted_confirmed_paths = compact_category_paths(st.session_state.confirmed_category_paths)
+if compacted_confirmed_paths != st.session_state.confirmed_category_paths:
+    st.session_state.confirmed_category_paths = compacted_confirmed_paths
+
 if st.session_state.show_category_dialog:
     render_category_dialog()
 
@@ -3341,13 +3359,11 @@ with st.container(border=True):
         st.markdown(pills + more, unsafe_allow_html=True)
     else:
         st.caption("暂未选择类目。")
-    mapped_seed_urls = resolve_category_seed_urls(selected_paths, "")
-    unmapped_paths = [path for path in selected_paths if not find_category_seed_url(path)[1]]
+    # Preparing every leaf URL can involve thousands of category paths.
+    # Defer that work until collection starts so confirming the dialog stays responsive.
+    mapped_seed_urls: list[tuple[str, str]] = []
     if data_source == "卖家精灵插件" and batch_category_collect and selected_paths:
-        if mapped_seed_urls:
-            st.caption("批量采集入口：" + "；".join(label for label, _ in mapped_seed_urls))
-        if unmapped_paths:
-            st.warning("这些类目还没有绑定具体 Amazon 榜单链接。为避免自动乱跳链接，本次不会自动打开父类页去发现链接：" + "；".join(unmapped_paths[:6]))
+        st.caption("批量采集入口将在点击“开始采集”后准备，避免选择类目时卡顿。")
 
     seller_cache_total = 0
     seller_cache_hydrated = 0
@@ -3506,14 +3522,12 @@ if run:
     try:
         collected_products = []
         if data_source == "卖家精灵插件":
-            target_label, target_url = resolve_primary_collection_url(selected_paths, custom_url)
-            target_url = amazon_url_for_list_type(target_url, list_type)
-            collection_label = "；".join(selected_paths[:3]) if selected_paths else target_label
-            if len(selected_paths) > 3:
-                collection_label += f" +{len(selected_paths) - 3}"
             should_batch_category_collect = batch_category_collect or selection_contains_parent_category(selected_paths)
             if should_batch_category_collect:
                 seed_urls = resolve_category_seed_urls(selected_paths, custom_url)
+                collection_label = "；".join(selected_paths[:3]) if selected_paths else "自定义链接"
+                if len(selected_paths) > 3:
+                    collection_label += f" +{len(selected_paths) - 3}"
                 log("Start batch category collection from category selection.")
                 batch_bar = st.progress(0, text="正在准备大类批量采集...")
                 active_progress_bar = batch_bar
@@ -3525,6 +3539,11 @@ if run:
                     total_status_placeholder=collection_total_placeholder,
                 )
             else:
+                target_label, target_url = resolve_primary_collection_url(selected_paths, custom_url)
+                target_url = amazon_url_for_list_type(target_url, list_type)
+                collection_label = "；".join(selected_paths[:3]) if selected_paths else target_label
+                if len(selected_paths) > 3:
+                    collection_label += f" +{len(selected_paths) - 3}"
                 st.session_state.collection_total_seed_count = 1
                 st.session_state.collection_completed_seed_count = 0
                 st.session_state.collection_total_raw_count = 0
