@@ -1106,16 +1106,17 @@ def count_products(text: str) -> int:
 
 def count_hydrated_products(text: str) -> int:
     blocks = re.split(r"\n#\d+\n", "\n" + text)
-    hydrated = 0
+    hydrated_asins: set[str] = set()
     for block in blocks:
-        if not re.search(r"ASIN:\s*[A-Z0-9]{10}", block):
+        asin_match = re.search(r"ASIN:\s*([A-Z0-9]{10})", block)
+        if not asin_match:
             continue
         has_parent_sales = re.search(r"近30天销量\(父体\):\s*[0-9,]+", block)
         has_sales_amount = re.search(r"销售额:\s*\$?[0-9,]+", block)
         has_fba_fee = re.search(r"FBA费用:\s*\n?\$?[0-9]+(?:\.[0-9]+)?", block)
         if has_parent_sales or has_sales_amount or has_fba_fee:
-            hydrated += 1
-    return hydrated
+            hydrated_asins.add(asin_match.group(1))
+    return len(hydrated_asins)
 
 
 def _report(progress, percent: int, message: str):

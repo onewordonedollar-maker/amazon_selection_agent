@@ -45,17 +45,67 @@ def load_cached_sellersprite_products(path: Path = DOM_CACHE_PATH, limit: int = 
 def parse_sellersprite_text(text: str, limit: int = 50) -> list[SellerSpriteProduct]:
     text = normalize_text(text)
     starts = [m.start() for m in re.finditer(r"\n#\d+\n", text)]
-    products: list[SellerSpriteProduct] = []
+    products_by_asin: dict[str, SellerSpriteProduct] = {}
     for index, start in enumerate(starts):
         end = starts[index + 1] if index + 1 < len(starts) else len(text)
         block = text[start:end].strip()
         asin = find_first(r"ASIN:([A-Z0-9]{10})", block)
         if not asin:
             continue
-        products.append(parse_product_block(block, asin))
-        if len(products) >= limit:
-            break
-    return products
+        candidate = parse_product_block(block, asin)
+        existing = products_by_asin.get(asin)
+        products_by_asin[asin] = (
+            merge_sellersprite_products(existing, candidate)
+            if existing
+            else candidate
+        )
+    return list(products_by_asin.values())[:limit]
+
+
+def sellersprite_product_completeness(product: SellerSpriteProduct) -> int:
+    """Score plugin enrichment, not Amazon's basic card fields."""
+    values = (
+        product.parent_monthly_sales,
+        product.child_monthly_sales,
+        product.sales_amount,
+        product.fba_fee,
+        product.bsr_rank,
+        product.sub_rank,
+        product.seller_count,
+        product.variant_count,
+        product.brand,
+        product.seller,
+        product.fulfillment,
+        product.margin_rate,
+        product.launched_at,
+        product.package_dimensions,
+        product.package_weight_lb,
+    )
+    return sum(bool(value) for value in values)
+
+
+def sellersprite_product_hydrated(product: SellerSpriteProduct) -> bool:
+    return bool(product.parent_monthly_sales or product.sales_amount or product.fba_fee)
+
+
+def merge_sellersprite_products(
+    existing: SellerSpriteProduct,
+    candidate: SellerSpriteProduct,
+) -> SellerSpriteProduct:
+    """Merge repeated snapshots of one ASIN, preferring enriched values."""
+    existing_score = sellersprite_product_completeness(existing)
+    candidate_score = sellersprite_product_completeness(candidate)
+    primary, secondary = (
+        (candidate, existing)
+        if candidate_score >= existing_score
+        else (existing, candidate)
+    )
+    values = {}
+    for field_name in SellerSpriteProduct.__dataclass_fields__:
+        primary_value = getattr(primary, field_name)
+        secondary_value = getattr(secondary, field_name)
+        values[field_name] = primary_value if primary_value not in ("", 0, 0.0, None) else secondary_value
+    return SellerSpriteProduct(**values)
 
 
 def parse_product_block(block: str, asin: str) -> SellerSpriteProduct:

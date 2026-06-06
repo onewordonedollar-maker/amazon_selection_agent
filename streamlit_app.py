@@ -26,7 +26,10 @@ from src.chrome_cdp import (
     is_rank_category_url,
     refresh_sellersprite_cache_pages,
 )
-from src.sellersprite_parser import load_cached_sellersprite_products
+from src.sellersprite_parser import (
+    load_cached_sellersprite_products,
+    sellersprite_product_hydrated,
+)
 
 
 OUTPUT_DIR = Path(__file__).resolve().parent / "outputs"
@@ -1162,6 +1165,57 @@ def apply_product_filters(products: list[Product], filters: dict) -> list[Produc
     return [product for product in products if product_matches_filters(product, filters)]
 
 
+def product_plugin_data_complete(product: Product) -> bool:
+    return bool(product.monthly_bought or product.sales_amount or product.fba_fee)
+
+
+def product_plugin_completeness(product: Product) -> int:
+    values = (
+        product.monthly_bought,
+        product.child_monthly_sales,
+        product.sales_amount,
+        product.fba_fee,
+        product.bsr_rank,
+        product.sub_rank,
+        product.seller_count,
+        product.variant_count,
+        product.brand,
+        product.seller_name,
+        product.prime_fba not in ("", "Unknown"),
+        product.margin_rate,
+        product.launched_at not in ("", "Unknown"),
+        product.package_dimensions not in ("", "Unknown"),
+        product.package_weight_lb,
+    )
+    return sum(bool(value) for value in values)
+
+
+def merge_product_records(existing: Product, candidate: Product) -> Product:
+    """Combine repeated collection attempts without losing enriched fields."""
+    existing_score = product_plugin_completeness(existing)
+    candidate_score = product_plugin_completeness(candidate)
+    primary, secondary = (
+        (candidate, existing)
+        if candidate_score >= existing_score
+        else (existing, candidate)
+    )
+    values = asdict(primary)
+    secondary_values = asdict(secondary)
+    for name, value in values.items():
+        if value in ("", 0, 0.0, None, "Unknown"):
+            replacement = secondary_values.get(name)
+            if replacement not in ("", 0, 0.0, None, "Unknown"):
+                values[name] = replacement
+    merged = Product(**values)
+    if product_plugin_data_complete(merged):
+        merged.status = "OK"
+        merged.error = ""
+    else:
+        merged.status = "PARTIAL"
+        merged.error = "卖家精灵字段未完整加载"
+    return merged
+
+
 def build_collection_summary(raw_products: list[Product], filtered_products: list[Product], filters: dict) -> str:
     if not raw_products:
         return "当前没有原始采集结果。请先点击“开始采集”，或载入上次采集结果。"
@@ -1170,6 +1224,9 @@ def build_collection_summary(raw_products: list[Product], filtered_products: lis
         f"原始采集池 {len(raw_products)} 条，当前筛选保留 {len(filtered_products)} 条，"
         f"筛掉 {removed_count} 条。"
     )
+    incomplete_count = sum(not product_plugin_data_complete(product) for product in raw_products)
+    if incomplete_count:
+        summary += f" 其中 {incomplete_count} 条卖家精灵字段未完整加载，缺失值不代表真实为 0。"
     rejection_lines = filter_rejection_summary(raw_products, filters)[:5]
     if rejection_lines:
         summary += " 主要筛选原因：" + "；".join(rejection_lines)
@@ -1245,9 +1302,11 @@ def stage_raw_products(products: list[Product]) -> None:
         if product.asin
     }
     for product in products:
-        if product.asin and product.asin not in staged_by_asin:
-            product.selected = False
-            staged_by_asin[product.asin] = product
+        if not product.asin:
+            continue
+        product.selected = False
+        existing = staged_by_asin.get(product.asin)
+        staged_by_asin[product.asin] = merge_product_records(existing, product) if existing else product
     staged_products = list(staged_by_asin.values())
     st.session_state.collection_staged_raw_products = staged_products
     st.session_state.raw_products = staged_products
@@ -1259,6 +1318,7 @@ def stage_raw_products(products: list[Product]) -> None:
 
 def filter_rejection_summary(products: list[Product], filters: dict) -> list[str]:
     reasons = {
+        "卖家精灵字段未完整加载": 0,
         "价格低于最低值": 0,
         "价格高于最高值": 0,
         "评分数低于最低值": 0,
@@ -1270,6 +1330,13 @@ def filter_rejection_summary(products: list[Product], filters: dict) -> list[str
         "上架时间不符合": 0,
     }
     for product in products:
+        plugin_missing = not product_plugin_data_complete(product)
+        plugin_filter_active = any(
+            filters[key] is not None
+            for key in ("min_bought", "max_bought", "min_child_sales", "max_child_sales", "min_bsr", "max_bsr")
+        )
+        if plugin_missing and plugin_filter_active:
+            reasons["卖家精灵字段未完整加载"] += 1
         if filters["min_price"] is not None and product.price < filters["min_price"]:
             reasons["价格低于最低值"] += 1
         if filters["max_price"] is not None and product.price > filters["max_price"]:
@@ -1278,13 +1345,13 @@ def filter_rejection_summary(products: list[Product], filters: dict) -> list[str
             reasons["评分数低于最低值"] += 1
         if filters["max_reviews"] is not None and product.review_count > filters["max_reviews"]:
             reasons["评分数高于最高值"] += 1
-        if filters["min_bought"] is not None and product.monthly_bought < filters["min_bought"]:
+        if not plugin_missing and filters["min_bought"] is not None and product.monthly_bought < filters["min_bought"]:
             reasons["月销量低于最低值"] += 1
-        if filters["max_bought"] is not None and product.monthly_bought > filters["max_bought"]:
+        if not plugin_missing and filters["max_bought"] is not None and product.monthly_bought > filters["max_bought"]:
             reasons["月销量高于最高值"] += 1
-        if not in_optional_range(product.child_monthly_sales, filters["min_child_sales"], filters["max_child_sales"]):
+        if not plugin_missing and not in_optional_range(product.child_monthly_sales, filters["min_child_sales"], filters["max_child_sales"]):
             reasons["子体销量不在范围"] += 1
-        if not in_optional_range(product.bsr_rank, filters["min_bsr"], filters["max_bsr"]):
+        if not plugin_missing and not in_optional_range(product.bsr_rank, filters["min_bsr"], filters["max_bsr"]):
             reasons["BSR 不在范围"] += 1
         if not launched_at_matches(product.launched_at, filters["launch_window"]):
             reasons["上架时间不符合"] += 1
@@ -2032,6 +2099,7 @@ def collect_sellersprite_products(list_type, filters, category_path: str = "") -
     image_cache = load_sellersprite_image_cache()
     products = []
     for scraped in scraped_products:
+        plugin_complete = sellersprite_product_hydrated(scraped)
         risks = detect_risk(scraped.title, scraped.brand)
         score, level, reason = score_product(
             scraped.rank,
@@ -2073,8 +2141,8 @@ def collect_sellersprite_products(list_type, filters, category_path: str = "") -
             reason=reason,
             risk_tags=risks,
             scraped_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            status="OK",
-            error="",
+            status="OK" if plugin_complete else "PARTIAL",
+            error="" if plugin_complete else "卖家精灵字段未完整加载",
             seller_name=scraped.seller,
             seller_count=scraped.seller_count,
             sales_amount=scraped.sales_amount,
@@ -2124,7 +2192,8 @@ def collect_sellersprite_entry(
         parsed_products = collect_sellersprite_products(list_type, filters, progress_label)
         before_count = len(products_by_asin)
         for product in parsed_products:
-            products_by_asin.setdefault(product.asin, product)
+            existing = products_by_asin.get(product.asin)
+            products_by_asin[product.asin] = merge_product_records(existing, product) if existing else product
         added_count = len(products_by_asin) - before_count
         stage_raw_products(list(products_by_asin.values()))
         if progress:
@@ -2221,14 +2290,22 @@ def collect_sellersprite_entry_with_quality_retry(
             progress_label=f"{label} 重试{retry_index}",
         )
         retry_ok, retry_message = sellersprite_collection_quality(retry_products, retry_results)
-        if len(retry_products) > len(best_products):
-            best_products, best_results = retry_products, retry_results
-            best_ok, best_message = retry_ok, retry_message
-        elif retry_ok and not best_ok:
-            best_products, best_results = retry_products, retry_results
-            best_ok, best_message = retry_ok, retry_message
-        else:
-            best_ok, best_message = sellersprite_collection_quality(best_products, best_results)
+        merged_by_asin = {product.asin: product for product in best_products if product.asin}
+        for product in retry_products:
+            existing = merged_by_asin.get(product.asin)
+            merged_by_asin[product.asin] = merge_product_records(existing, product) if existing else product
+        best_products = list(merged_by_asin.values())
+        best_result_score = (
+            sum(int(getattr(result, "hydrated_count", 0) or 0) for result in best_results),
+            sum(int(getattr(result, "product_count", 0) or 0) for result in best_results),
+        )
+        retry_result_score = (
+            sum(int(getattr(result, "hydrated_count", 0) or 0) for result in retry_results),
+            sum(int(getattr(result, "product_count", 0) or 0) for result in retry_results),
+        )
+        if retry_ok or retry_result_score > best_result_score:
+            best_results = retry_results
+        best_ok, best_message = sellersprite_collection_quality(best_products, best_results)
         log(f"{label}: retry {retry_index}/{retry_limit} result: {retry_message}. best: {best_message}.")
     if progress and not best_ok:
         progress(99, f"{best_message}。已保留当前能解析到的产品。")
@@ -2367,17 +2444,20 @@ def collect_sellersprite_batch_from_seeds(
             )
         except CollectionStopped:
             for product in st.session_state.get("collection_staged_raw_products", []):
-                raw_by_asin.setdefault(product.asin, product)
+                existing = raw_by_asin.get(product.asin)
+                raw_by_asin[product.asin] = merge_product_records(existing, product) if existing else product
             stage_raw_products(list(raw_by_asin.values()))
             raise
         except Exception as exc:
             partial_products = st.session_state.get("collection_staged_raw_products", [])
             added = 0
             for product in partial_products:
-                if product.asin in raw_by_asin:
-                    continue
-                raw_by_asin[product.asin] = product
-                added += 1
+                existing = raw_by_asin.get(product.asin)
+                if not existing:
+                    added += 1
+                    raw_by_asin[product.asin] = product
+                else:
+                    raw_by_asin[product.asin] = merge_product_records(existing, product)
             stage_raw_products(list(raw_by_asin.values()))
             st.session_state.collection_failed_seed_count += 1
             error_message = str(exc).strip() or exc.__class__.__name__
@@ -2409,10 +2489,12 @@ def collect_sellersprite_batch_from_seeds(
         else:
             added = 0
             for product in seed_products:
-                if product.asin in raw_by_asin:
-                    continue
-                raw_by_asin[product.asin] = product
-                added += 1
+                existing = raw_by_asin.get(product.asin)
+                if not existing:
+                    added += 1
+                    raw_by_asin[product.asin] = product
+                else:
+                    raw_by_asin[product.asin] = merge_product_records(existing, product)
             stage_raw_products(list(raw_by_asin.values()))
             progress_bar.progress(
                 seed_end,
