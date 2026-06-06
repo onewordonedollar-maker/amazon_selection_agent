@@ -425,9 +425,17 @@ def render_stop_collection_button() -> None:
     disabled_attr = "" if server_ready else "disabled"
     components.html(
         f"""
+        <style>
+          html, body {{
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+          }}
+        </style>
         <button id="stop-collection-btn" {disabled_attr} style="
+            display: block;
             width: 100%;
-            height: 40px;
+            height: 42px;
             border: 1px solid #ff4b4b;
             border-radius: 8px;
             background: #fff;
@@ -458,7 +466,7 @@ def render_stop_collection_button() -> None:
         }}
         </script>
         """,
-        height=44,
+        height=42,
     )
 
 
@@ -489,6 +497,12 @@ def ensure_state():
         st.session_state.filter_auto_apply_requested = False
     if "collection_in_progress" not in st.session_state:
         st.session_state.collection_in_progress = False
+    if "collection_total_raw_count" not in st.session_state:
+        st.session_state.collection_total_raw_count = 0
+    if "collection_completed_seed_count" not in st.session_state:
+        st.session_state.collection_completed_seed_count = 0
+    if "collection_total_seed_count" not in st.session_state:
+        st.session_state.collection_total_seed_count = 0
 
 
 def log(message: str):
@@ -697,6 +711,21 @@ def reset_collection_run_messages() -> None:
     st.session_state.last_collection_summary = ""
     st.session_state.last_raw_products_message = ""
     st.session_state.collection_staged_raw_products = []
+    st.session_state.collection_total_raw_count = 0
+    st.session_state.collection_completed_seed_count = 0
+    st.session_state.collection_total_seed_count = 0
+
+
+def update_collection_total_status(placeholder=None) -> None:
+    total_raw = int(st.session_state.get("collection_total_raw_count", 0) or 0)
+    completed = int(st.session_state.get("collection_completed_seed_count", 0) or 0)
+    total_seeds = int(st.session_state.get("collection_total_seed_count", 0) or 0)
+    if total_seeds:
+        text = f"本轮所有已选类目累计原始产品：**{total_raw:,} 条**｜已完成小类入口：**{completed}/{total_seeds}**"
+    else:
+        text = f"本轮所有已选类目累计原始产品：**{total_raw:,} 条**"
+    target = placeholder if placeholder is not None else st
+    target.markdown(text)
 
 
 def load_sellersprite_image_cache() -> dict[str, str]:
@@ -2148,6 +2177,7 @@ def collect_sellersprite_batch(
     progress_start: int = 0,
     progress_end: int = 100,
     progress_prefix: str = "",
+    total_status_placeholder=None,
 ) -> tuple[list[Product], bool, str, int]:
     progress_span = max(1, progress_end - progress_start)
 
@@ -2161,6 +2191,10 @@ def collect_sellersprite_batch(
     set_batch_progress(0, "当前入口开始采集：只打开已映射的具体 Amazon 榜单页。")
 
     def update_entry_progress(percent: int, message: str):
+        st.session_state.collection_total_raw_count = len(
+            st.session_state.get("collection_staged_raw_products", [])
+        )
+        update_collection_total_status(total_status_placeholder)
         set_batch_progress(percent, message)
 
     products, refresh_results, quality_ok, quality_message = collect_sellersprite_entry_with_quality_retry(
@@ -2233,11 +2267,16 @@ def collect_sellersprite_batch_from_seeds(
     list_type: str,
     filters: dict,
     progress_bar,
+    total_status_placeholder=None,
 ) -> list[Product]:
     if not seed_urls:
         raise ValueError("没有可采集的类目链接。请先选择已映射的类目，或填写自定义 Amazon Best Sellers 链接。")
     raw_by_asin: dict[str, Product] = {}
     seed_summaries: list[dict] = []
+    st.session_state.collection_total_seed_count = len(seed_urls)
+    st.session_state.collection_completed_seed_count = 0
+    st.session_state.collection_total_raw_count = 0
+    update_collection_total_status(total_status_placeholder)
     for seed_index, (seed_label, seed_url) in enumerate(seed_urls, start=1):
         if stop_collection_requested():
             log(f"Batch seed collection stopped before seed {seed_index}/{len(seed_urls)}.")
@@ -2256,6 +2295,7 @@ def collect_sellersprite_batch_from_seeds(
             progress_start=seed_start,
             progress_end=seed_end,
             progress_prefix="",
+            total_status_placeholder=total_status_placeholder,
         )
         added = 0
         for product in seed_products:
@@ -2275,6 +2315,9 @@ def collect_sellersprite_batch_from_seeds(
             "quality_message": quality_message,
             "pages": page_read_count,
         })
+        st.session_state.collection_completed_seed_count = seed_index
+        st.session_state.collection_total_raw_count = len(raw_by_asin)
+        update_collection_total_status(total_status_placeholder)
         log(f"Seed {seed_index}/{len(seed_urls)} finished: {seed_label}. added raw {added}, total raw {len(raw_by_asin)}.")
     progress_bar.progress(100, text=f"全部小类采集完成：原始去重合计 {len(raw_by_asin)} 条。现在可以应用筛选或查看产品列表。")
     ok_count = sum(1 for item in seed_summaries if item["quality_ok"])
@@ -2437,6 +2480,12 @@ st.markdown(
     }
     div[data-testid="stElementContainer"]:has(.collection-action-toolbar) + div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button p {
         white-space: nowrap;
+    }
+    div[data-testid="stElementContainer"]:has(.collection-action-toolbar) + div[data-testid="stHorizontalBlock"] > div:nth-child(2) iframe {
+        display: block !important;
+        height: 42px !important;
+        margin-top: 1px !important;
+        width: 100% !important;
     }
     div[data-testid="stElementContainer"]:has(.collection-action-toolbar) + div[data-testid="stHorizontalBlock"] > div:nth-child(2) button {
         background: #ffffff !important;
@@ -3252,13 +3301,17 @@ with st.container(border=True):
     with setup_left:
         list_type = st.radio(T["list_type"], ["New Releases", "Best Sellers"], horizontal=True)
         st.write(f"**{T['categories']}**")
-        if st.button(
-            f"选择类目（已选 {len(st.session_state.confirmed_category_paths)}）",
-            key="open_category_dialog_button",
-            use_container_width=True,
-        ):
-            st.session_state.show_category_dialog = True
-            st.rerun()
+        category_button_col, category_count_col = st.columns([1, 1.35], vertical_alignment="center")
+        with category_button_col:
+            if st.button(
+                "选择类目",
+                key="open_category_dialog_button",
+                use_container_width=True,
+            ):
+                st.session_state.show_category_dialog = True
+                st.rerun()
+        with category_count_col:
+            st.caption(f"已选 {len(st.session_state.confirmed_category_paths)} 个类目")
     with setup_right:
         data_source = "卖家精灵插件"
         st.write("**数据源**")
@@ -3370,6 +3423,8 @@ with st.container(border=True):
     apply_filter = action_cols[2].button("应用筛选", key="apply_filter_button", use_container_width=True, disabled=not st.session_state.raw_products)
     clear_filters = action_cols[3].button("清空筛选", key="clear_filters_button", use_container_width=True, on_click=reset_filter_widgets)
     load_last_raw = action_cols[4].button("载入最近采集池", key="load_last_raw_button", use_container_width=True)
+    collection_total_placeholder = st.empty()
+    update_collection_total_status(collection_total_placeholder)
 
     raw_count = len(st.session_state.raw_products)
     filtered_count = len(st.session_state.products)
@@ -3429,6 +3484,7 @@ if apply_filter:
 if run:
     clear_stop_collection_flag()
     reset_collection_run_messages()
+    update_collection_total_status(collection_total_placeholder)
     mark_collection_running()
     filters = current_filters
     st.session_state.collection_in_progress = True
@@ -3447,8 +3503,18 @@ if run:
                 log("Start batch category collection from category selection.")
                 batch_bar = st.progress(0, text="正在准备大类批量采集...")
                 active_progress_bar = batch_bar
-                collected_products = collect_sellersprite_batch_from_seeds(seed_urls, list_type, filters, batch_bar)
+                collected_products = collect_sellersprite_batch_from_seeds(
+                    seed_urls,
+                    list_type,
+                    filters,
+                    batch_bar,
+                    total_status_placeholder=collection_total_placeholder,
+                )
             else:
+                st.session_state.collection_total_seed_count = 1
+                st.session_state.collection_completed_seed_count = 0
+                st.session_state.collection_total_raw_count = 0
+                update_collection_total_status(collection_total_placeholder)
                 if selected_paths and (len(selected_paths) > 1 or any(find_exact_category_url(path) for path in selected_paths)):
                     st.session_state.last_category_mapping_message = (
                         (st.session_state.last_category_mapping_message + " " if st.session_state.last_category_mapping_message else "")
@@ -3459,6 +3525,10 @@ if run:
                 active_progress_bar = refresh_bar
 
                 def update_run_refresh_progress(percent: int, message: str):
+                    st.session_state.collection_total_raw_count = len(
+                        st.session_state.get("collection_staged_raw_products", [])
+                    )
+                    update_collection_total_status(collection_total_placeholder)
                     refresh_bar.progress(percent, text=message)
 
                 collected_products, refresh_results, quality_ok, quality_message = collect_sellersprite_entry_with_quality_retry(
@@ -3469,6 +3539,9 @@ if run:
                     page_count=2,
                     progress_label=target_label,
                 )
+                st.session_state.collection_completed_seed_count = 1
+                st.session_state.collection_total_raw_count = len(collected_products)
+                update_collection_total_status(collection_total_placeholder)
                 total_product_count = sum(result.product_count for result in refresh_results)
                 total_hydrated_count = sum(result.hydrated_count for result in refresh_results)
                 total_image_count = sum(result.image_count for result in refresh_results)
