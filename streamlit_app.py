@@ -1716,15 +1716,21 @@ def selected_category_paths_from_state(tree: dict | None = None, prefix: str = "
         return []
     seen.add(tree_id)
     selected_paths = []
+    selected_seen = set()
     for name, node in source_tree.items():
         path = f"{prefix} > {name}" if prefix else name
         if st.session_state.get(category_widget_key("cat_sel", path), False):
-            # Keep the confirmed selection compact. A checked parent already
-            # represents its full branch; leaf expansion happens only when
-            # building the collection plan.
-            selected_paths.append(path)
+            # A checked parent represents its entire branch in the dialog.
+            # Confirmation compacts these paths before persisting them.
+            for branch_path in iter_category_branch_paths(path, node):
+                if branch_path not in selected_seen:
+                    selected_paths.append(branch_path)
+                    selected_seen.add(branch_path)
             continue
-        selected_paths.extend(selected_category_paths_from_state(node.get("children", {}), path, seen))
+        for branch_path in selected_category_paths_from_state(node.get("children", {}), path, seen):
+            if branch_path not in selected_seen:
+                selected_paths.append(branch_path)
+                selected_seen.add(branch_path)
     return selected_paths
 
 
