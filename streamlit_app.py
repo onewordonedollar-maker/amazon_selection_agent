@@ -1814,7 +1814,7 @@ def render_category_dialog():
             placeholder="请输入 Node ID / 类目关键词",
             label_visibility="collapsed",
         ).strip().lower()
-        with st.container(height=300, border=False):
+        with st.container(border=False):
             st.markdown("<span class='category-tree-scroll-anchor'></span>", unsafe_allow_html=True)
             selected_paths = render_category_tree(query)
     with right_panel:
@@ -2598,7 +2598,7 @@ st.markdown(
     }
     div[data-testid="stDialog"] [role="dialog"] {
         border-radius: 4px !important;
-        height: min(90dvh, 700px) !important;
+        height: auto !important;
         max-height: calc(100dvh - 16px) !important;
         display: flex !important;
         flex-direction: column !important;
@@ -2606,13 +2606,13 @@ st.markdown(
         width: min(92vw, 1320px) !important;
     }
     div[data-testid="stDialog"] section {
-        height: 100% !important;
+        height: auto !important;
         padding-bottom: 0 !important;
         max-height: calc(100vh - 56px) !important;
         overflow: hidden !important;
     }
     div[data-testid="stDialog"] section > div {
-        height: 100% !important;
+        height: auto !important;
         overflow: hidden !important;
     }
     div[data-testid="stDialog"] div[data-testid="stVerticalBlock"] {
@@ -2702,7 +2702,7 @@ st.markdown(
     }
     div[data-testid="stDialog"] div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"] .category-tree-scroll-anchor),
     div[data-testid="stDialog"] div[data-testid="stVerticalBlock"]:has(> div[data-testid="stElementContainer"] .category-tree-scroll-anchor) {
-        height: 300px !important;
+        height: auto !important;
         max-height: max(180px, calc(100dvh - 300px)) !important;
         min-height: 0 !important;
         overflow-y: auto !important;
@@ -3278,7 +3278,7 @@ st.markdown(
             line-height: 32px;
         }
         div[data-testid="stDialog"] [role="dialog"] {
-            height: min(92dvh, 700px) !important;
+            height: auto !important;
             max-height: calc(100dvh - 12px) !important;
             width: min(96vw, 1320px) !important;
         }
