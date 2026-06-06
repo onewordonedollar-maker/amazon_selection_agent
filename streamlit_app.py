@@ -420,6 +420,13 @@ def request_stop_collection() -> None:
     log("Stop collection requested from UI.")
 
 
+def prepare_collection_run() -> None:
+    clear_stop_collection_flag()
+    mark_collection_running()
+    st.session_state.collection_in_progress = True
+    st.session_state.collection_start_requested = True
+
+
 def render_stop_collection_button() -> None:
     server_ready = ensure_stop_collection_server()
     disabled_attr = "" if server_ready else "disabled"
@@ -497,6 +504,8 @@ def ensure_state():
         st.session_state.filter_auto_apply_requested = False
     if "collection_in_progress" not in st.session_state:
         st.session_state.collection_in_progress = False
+    if "collection_start_requested" not in st.session_state:
+        st.session_state.collection_start_requested = False
     if "collection_total_raw_count" not in st.session_state:
         st.session_state.collection_total_raw_count = 0
     if "collection_completed_seed_count" not in st.session_state:
@@ -1269,7 +1278,14 @@ def filter_rejection_summary(products: list[Product], filters: dict) -> list[str
     return [f"{name}：{count} 条" for name, count in sorted(reasons.items(), key=lambda item: item[1], reverse=True) if count]
 
 
-def render_range_filter(title: str, key_prefix: str, min_default: str = "", max_default: str = "", money: bool = False):
+def render_range_filter(
+    title: str,
+    key_prefix: str,
+    min_default: str = "",
+    max_default: str = "",
+    money: bool = False,
+    disabled: bool = False,
+):
     st.markdown(f"<div class='filter-label'>{escape(title)} <span>?</span></div>", unsafe_allow_html=True)
     st.markdown("<div class='range-filter-anchor'></div>", unsafe_allow_html=True)
     cols = st.columns([1, 0.18, 1], vertical_alignment="center")
@@ -1281,6 +1297,7 @@ def render_range_filter(title: str, key_prefix: str, min_default: str = "", max_
             key=f"{key_prefix}_min",
             on_change=request_filter_auto_apply,
             label_visibility="collapsed",
+            disabled=disabled,
         )
     with cols[1]:
         st.markdown("<div class='filter-range-sep'>~</div>", unsafe_allow_html=True)
@@ -1292,6 +1309,7 @@ def render_range_filter(title: str, key_prefix: str, min_default: str = "", max_
             key=f"{key_prefix}_max",
             on_change=request_filter_auto_apply,
             label_visibility="collapsed",
+            disabled=disabled,
         )
     if money:
         st.markdown("<div class='filter-money-hint'>$</div>", unsafe_allow_html=True)
@@ -2400,10 +2418,17 @@ def render_cards(products):
     st.markdown("</div>", unsafe_allow_html=True)
 
 ensure_state()
+collection_locked = bool(st.session_state.collection_in_progress)
 
 header_left, header_right = st.columns([4.5, 1.15], vertical_alignment="center")
 with header_right:
-    UI_LANG = st.radio("Language / 语言", ["中文", "English"], horizontal=True, label_visibility="collapsed")
+    UI_LANG = st.radio(
+        "Language / 语言",
+        ["中文", "English"],
+        horizontal=True,
+        label_visibility="collapsed",
+        disabled=collection_locked,
+    )
 T = TEXT[UI_LANG]
 with header_left:
     st.title(T["title"])
@@ -3348,7 +3373,12 @@ if st.session_state.show_category_dialog:
 with st.container(border=True):
     setup_left, setup_right = st.columns([1, 1], vertical_alignment="top")
     with setup_left:
-        list_type = st.radio(T["list_type"], ["New Releases", "Best Sellers"], horizontal=True)
+        list_type = st.radio(
+            T["list_type"],
+            ["New Releases", "Best Sellers"],
+            horizontal=True,
+            disabled=collection_locked,
+        )
         st.write(f"**{T['categories']}**")
         category_button_col, category_count_col = st.columns([1, 1.35], vertical_alignment="center")
         with category_button_col:
@@ -3356,6 +3386,7 @@ with st.container(border=True):
                 "选择类目",
                 key="open_category_dialog_button",
                 use_container_width=True,
+                disabled=collection_locked,
             ):
                 st.session_state.show_category_dialog = True
                 st.rerun()
@@ -3365,8 +3396,17 @@ with st.container(border=True):
         data_source = "卖家精灵插件"
         st.write("**数据源**")
         st.markdown("<div class='source-static'>卖家精灵插件</div>", unsafe_allow_html=True)
-        custom_url = st.text_input(T["custom_url"], placeholder="https://www.amazon.com/...")
-        batch_category_collect = st.checkbox("大类批量采集", value=False, help="打开当前大类页，自动发现小类链接，并逐个采集合格产品。")
+        custom_url = st.text_input(
+            T["custom_url"],
+            placeholder="https://www.amazon.com/...",
+            disabled=collection_locked,
+        )
+        batch_category_collect = st.checkbox(
+            "大类批量采集",
+            value=False,
+            help="打开当前大类页，自动发现小类链接，并逐个采集合格产品。",
+            disabled=collection_locked,
+        )
 
     selected_paths = st.session_state.confirmed_category_paths
     if selected_paths:
@@ -3408,8 +3448,18 @@ with st.container(border=True):
         st.caption("本地只保留最近 5 次原始采集池；载入后会立即按当前筛选条件重新计算下方结果。")
         history_cols = st.columns([3, 1], vertical_alignment="bottom")
         history_labels = [label for label, _ in history_options]
-        selected_history_label = history_cols[0].selectbox("历史原始采集池", history_labels, label_visibility="collapsed")
-        load_history = history_cols[1].button("载入选中记录", key="load_history_record_button", use_container_width=True)
+        selected_history_label = history_cols[0].selectbox(
+            "历史原始采集池",
+            history_labels,
+            label_visibility="collapsed",
+            disabled=collection_locked,
+        )
+        load_history = history_cols[1].button(
+            "载入选中记录",
+            key="load_history_record_button",
+            use_container_width=True,
+            disabled=collection_locked,
+        )
     else:
         selected_history_label = ""
         load_history = False
@@ -3417,17 +3467,27 @@ with st.container(border=True):
     st.write(f"**{T['filters']}**")
     filter_top = st.columns(3)
     with filter_top[0]:
-        min_price_raw, max_price_raw = render_range_filter(T["price"], "filter_price", "24.99", "200.00", money=True)
+        min_price_raw, max_price_raw = render_range_filter(
+            T["price"], "filter_price", "24.99", "200.00", money=True, disabled=collection_locked
+        )
     with filter_top[1]:
-        min_reviews_raw, max_reviews_raw = render_range_filter(T["reviews"], "filter_reviews", "", "300")
+        min_reviews_raw, max_reviews_raw = render_range_filter(
+            T["reviews"], "filter_reviews", "", "300", disabled=collection_locked
+        )
     with filter_top[2]:
-        min_bought_raw, max_bought_raw = render_range_filter(T["monthly_sales"], "filter_monthly_sales", "100", "")
+        min_bought_raw, max_bought_raw = render_range_filter(
+            T["monthly_sales"], "filter_monthly_sales", "100", "", disabled=collection_locked
+        )
 
     filter_bottom = st.columns([1, 1, 1], vertical_alignment="bottom")
     with filter_bottom[0]:
-        min_child_sales_raw, max_child_sales_raw = render_range_filter(T["child_sales"], "filter_child_sales")
+        min_child_sales_raw, max_child_sales_raw = render_range_filter(
+            T["child_sales"], "filter_child_sales", disabled=collection_locked
+        )
     with filter_bottom[1]:
-        min_bsr_raw, max_bsr_raw = render_range_filter(T["bsr"], "filter_bsr")
+        min_bsr_raw, max_bsr_raw = render_range_filter(
+            T["bsr"], "filter_bsr", disabled=collection_locked
+        )
     with filter_bottom[2]:
         st.markdown(f"<div class='filter-label'>{escape(T['launched_at'])} <span>?</span></div>", unsafe_allow_html=True)
         launch_options = ["不限", "近30天", "近60天", "近3个月", "近半年", "近1年", "近2年", "近1~2年"] if UI_LANG == "中文" else ["Any", "Last 30 days", "Last 60 days", "Last 3 months", "Last 6 months", "Last year", "Last 2 years", "1-2 years"]
@@ -3437,6 +3497,7 @@ with st.container(border=True):
             key="filter_launch_window",
             on_change=request_filter_auto_apply,
             label_visibility="collapsed",
+            disabled=collection_locked,
         )
     current_filters = {
         "min_price": parse_filter_number(min_price_raw, 0.0),
@@ -3464,12 +3525,37 @@ with st.container(border=True):
     st.markdown("<div class='collection-action-toolbar'></div>", unsafe_allow_html=True)
     action_cols = st.columns([1.05, 1.05, 1.05, 1.05, 1.2], vertical_alignment="center")
     seller_cache_can_run = data_source != "卖家精灵插件" or chrome_ready
-    run = action_cols[0].button(T["run"], key="run_collection_button", type="primary", use_container_width=True, disabled=not seller_cache_can_run)
+    run_clicked = action_cols[0].button(
+        T["run"],
+        key="run_collection_button",
+        type="primary",
+        use_container_width=True,
+        disabled=not seller_cache_can_run or collection_locked,
+        on_click=prepare_collection_run,
+    )
+    run = bool(run_clicked or st.session_state.collection_start_requested)
+    st.session_state.collection_start_requested = False
     with action_cols[1]:
         render_stop_collection_button()
-    apply_filter = action_cols[2].button("应用筛选", key="apply_filter_button", use_container_width=True, disabled=not st.session_state.raw_products)
-    clear_filters = action_cols[3].button("清空筛选", key="clear_filters_button", use_container_width=True, on_click=reset_filter_widgets)
-    load_last_raw = action_cols[4].button("载入最近采集池", key="load_last_raw_button", use_container_width=True)
+    apply_filter = action_cols[2].button(
+        "应用筛选",
+        key="apply_filter_button",
+        use_container_width=True,
+        disabled=collection_locked or not st.session_state.raw_products,
+    )
+    clear_filters = action_cols[3].button(
+        "清空筛选",
+        key="clear_filters_button",
+        use_container_width=True,
+        on_click=reset_filter_widgets,
+        disabled=collection_locked,
+    )
+    load_last_raw = action_cols[4].button(
+        "载入最近采集池",
+        key="load_last_raw_button",
+        use_container_width=True,
+        disabled=collection_locked,
+    )
     collection_total_placeholder = st.empty()
     update_collection_total_status(collection_total_placeholder)
 
@@ -3529,7 +3615,6 @@ if apply_filter:
     st.rerun()
 
 if run:
-    clear_stop_collection_flag()
     reset_collection_run_messages()
     update_collection_total_status(collection_total_placeholder)
     mark_collection_running()
@@ -3681,6 +3766,7 @@ if run:
         st.session_state.collection_in_progress = False
         clear_collection_running_flag()
         clear_stop_collection_flag()
+    st.rerun()
 
 products = st.session_state.products
 sync_product_selection_from_widgets(products)
