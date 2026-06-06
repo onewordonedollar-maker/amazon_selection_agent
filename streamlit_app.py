@@ -46,6 +46,7 @@ SELLERSPRITE_EXPECTED_PRODUCTS_PER_PAGE = 50
 SELLERSPRITE_MIN_PRODUCTS_PER_PAGE = 45
 SELLERSPRITE_MIN_PRODUCTS_TWO_PAGES = 95
 SELLERSPRITE_CATEGORY_RETRY_LIMIT = 1
+EMPTY_NEW_RELEASES_MESSAGE = "Amazon 明确显示该类目暂无热门新品。"
 
 SELLERSPRITE_EXPORT_COLUMNS = [
     ("image_preview_formula", "主图"),
@@ -512,6 +513,10 @@ def ensure_state():
         st.session_state.collection_completed_seed_count = 0
     if "collection_failed_seed_count" not in st.session_state:
         st.session_state.collection_failed_seed_count = 0
+    if "collection_empty_seed_count" not in st.session_state:
+        st.session_state.collection_empty_seed_count = 0
+    if "collection_failed_seed_details" not in st.session_state:
+        st.session_state.collection_failed_seed_details = []
     if "collection_total_seed_count" not in st.session_state:
         st.session_state.collection_total_seed_count = 0
 
@@ -725,6 +730,8 @@ def reset_collection_run_messages() -> None:
     st.session_state.collection_total_raw_count = 0
     st.session_state.collection_completed_seed_count = 0
     st.session_state.collection_failed_seed_count = 0
+    st.session_state.collection_empty_seed_count = 0
+    st.session_state.collection_failed_seed_details = []
     st.session_state.collection_total_seed_count = 0
 
 
@@ -732,12 +739,14 @@ def update_collection_total_status(placeholder=None) -> None:
     total_raw = int(st.session_state.get("collection_total_raw_count", 0) or 0)
     completed = int(st.session_state.get("collection_completed_seed_count", 0) or 0)
     failed = int(st.session_state.get("collection_failed_seed_count", 0) or 0)
+    empty = int(st.session_state.get("collection_empty_seed_count", 0) or 0)
     total_seeds = int(st.session_state.get("collection_total_seed_count", 0) or 0)
     if total_seeds:
         failure_text = f"｜失败入口：**{failed} 个**" if failed else ""
+        empty_text = f"｜空榜入口：**{empty} 个**" if empty else ""
         text = (
             f"本轮所有已选类目累计原始产品：**{total_raw:,} 条**｜"
-            f"已处理小类入口：**{completed}/{total_seeds}**{failure_text}"
+            f"已处理小类入口：**{completed}/{total_seeds}**{empty_text}{failure_text}"
         )
     else:
         text = f"本轮所有已选类目累计原始产品：**{total_raw:,} 条**"
@@ -2022,7 +2031,7 @@ def seller_product_html(product: Product) -> str:
     """
 
 
-def collect_sellersprite_products(list_type, filters) -> list[Product]:
+def collect_sellersprite_products(list_type, filters, category_path: str = "") -> list[Product]:
     scraped_products = load_cached_sellersprite_products(limit=200)
     image_cache = load_sellersprite_image_cache()
     products = []
@@ -2045,7 +2054,7 @@ def collect_sellersprite_products(list_type, filters) -> list[Product]:
             review_status="待审核",
             note="",
             list_type=list_type,
-            category_path=scraped.sub_category or scraped.bsr_category or "Pet Supplies > Dogs > Dog Wireless Fences",
+            category_path=scraped.sub_category or scraped.bsr_category or category_path or "未识别类目",
             rank=scraped.rank,
             title=scraped.title,
             asin=scraped.asin,
@@ -2107,9 +2116,16 @@ def collect_sellersprite_entry(
         raise_if_stop_requested()
         refresh_results.append(refresh_result)
         if not refresh_result.ok and not refresh_result.product_count:
-            raise RuntimeError(refresh_result.message)
+            cached_text = ""
+            if SELLERSPRITE_DOM_CACHE.exists():
+                cached_text = SELLERSPRITE_DOM_CACHE.read_text(encoding="utf-8", errors="replace")
+            if "there are no hot new releases available in this category" in cached_text.lower():
+                refresh_result.ok = True
+                refresh_result.message = EMPTY_NEW_RELEASES_MESSAGE
+            else:
+                raise RuntimeError(refresh_result.message)
         page_name = "第一页" if page == 1 else "第二页" if page == 2 else f"第 {page} 页"
-        parsed_products = collect_sellersprite_products(list_type, filters)
+        parsed_products = collect_sellersprite_products(list_type, filters, progress_label)
         before_count = len(products_by_asin)
         for product in parsed_products:
             products_by_asin.setdefault(product.asin, product)
@@ -2143,6 +2159,8 @@ def collect_sellersprite_entry(
 def sellersprite_collection_quality(products: list[Product], refresh_results: list) -> tuple[bool, str]:
     if not refresh_results:
         return False, "没有读取到页面"
+    if any(result.message == EMPTY_NEW_RELEASES_MESSAGE for result in refresh_results):
+        return True, EMPTY_NEW_RELEASES_MESSAGE
     page_counts = [
         max(int(getattr(result, "product_count", 0) or 0), int(getattr(result, "hydrated_count", 0) or 0))
         for result in refresh_results
@@ -2328,6 +2346,8 @@ def collect_sellersprite_batch_from_seeds(
     st.session_state.collection_total_seed_count = len(seed_urls)
     st.session_state.collection_completed_seed_count = 0
     st.session_state.collection_failed_seed_count = 0
+    st.session_state.collection_empty_seed_count = 0
+    st.session_state.collection_failed_seed_details = []
     st.session_state.collection_total_raw_count = 0
     update_collection_total_status(total_status_placeholder)
     for seed_index, (seed_label, seed_url) in enumerate(seed_urls, start=1):
@@ -2365,6 +2385,11 @@ def collect_sellersprite_batch_from_seeds(
             stage_raw_products(list(raw_by_asin.values()))
             st.session_state.collection_failed_seed_count += 1
             error_message = str(exc).strip() or exc.__class__.__name__
+            st.session_state.collection_failed_seed_details.append({
+                "label": seed_label,
+                "url": seed_url,
+                "error": error_message,
+            })
             seed_summaries.append({
                 "label": seed_label,
                 "added": added,
@@ -2405,7 +2430,10 @@ def collect_sellersprite_batch_from_seeds(
                 "quality_message": quality_message,
                 "pages": page_read_count,
                 "failed": False,
+                "empty": quality_message == EMPTY_NEW_RELEASES_MESSAGE,
             })
+            if quality_message == EMPTY_NEW_RELEASES_MESSAGE:
+                st.session_state.collection_empty_seed_count += 1
             log(f"Seed {seed_index}/{len(seed_urls)} finished: {seed_label}. added raw {added}, total raw {len(raw_by_asin)}.")
         finally:
             st.session_state.collection_completed_seed_count = seed_index
@@ -2415,6 +2443,7 @@ def collect_sellersprite_batch_from_seeds(
     progress_bar.progress(100, text=f"全部小类采集完成：原始去重合计 {len(raw_by_asin)} 条。现在可以应用筛选或查看产品列表。")
     ok_count = sum(1 for item in seed_summaries if item["quality_ok"])
     failed_items = [item for item in seed_summaries if item.get("failed")]
+    empty_items = [item for item in seed_summaries if item.get("empty")]
     weak_items = [item for item in seed_summaries if not item["quality_ok"]]
     weak_preview = "；".join(f"{item['label']}（{item['quality_message']}）" for item in weak_items[:3])
     weak_suffix = f" 疑似漏采小类：{weak_preview}" if weak_preview else ""
@@ -2422,7 +2451,7 @@ def collect_sellersprite_batch_from_seeds(
         weak_suffix += f"；另有 {len(weak_items) - 3} 个小类请查看日志。"
     st.session_state.last_cache_refresh_message = (
         f"批量采集完成：计划入口 {len(seed_urls)} 个，实际处理 {len(seed_summaries)} 个；"
-        f"质量正常 {ok_count} 个，失败 {len(failed_items)} 个，"
+        f"质量正常 {ok_count} 个（其中空榜 {len(empty_items)} 个），失败 {len(failed_items)} 个，"
         f"疑似漏采或失败 {len(weak_items)} 个；原始去重合计 {len(raw_by_asin)} 条。"
         f"{weak_suffix}"
     )
@@ -3595,6 +3624,13 @@ with st.container(border=True):
     )
     collection_total_placeholder = st.empty()
     update_collection_total_status(collection_total_placeholder)
+    failed_seed_details = st.session_state.get("collection_failed_seed_details", [])
+    if failed_seed_details:
+        failure_lines = [
+            f"{index}. {item.get('label', '未知入口')}：{item.get('error', '未知错误')}"
+            for index, item in enumerate(failed_seed_details, start=1)
+        ]
+        st.warning("本轮失败入口及原因：\n\n" + "\n\n".join(failure_lines))
 
     raw_count = len(st.session_state.raw_products)
     filtered_count = len(st.session_state.products)

@@ -16,6 +16,8 @@ from urllib.request import Request, urlopen
 
 
 DEFAULT_CDP_PORT = 9222
+EMPTY_NEW_RELEASES_TEXT = "there are no hot new releases available in this category"
+EMPTY_NEW_RELEASES_MESSAGE = "Amazon 明确显示该类目暂无热门新品。"
 
 
 def _check_stop(stop_check=None) -> None:
@@ -621,6 +623,8 @@ def refresh_sellersprite_cache_pages(
             if page_callback:
                 page_callback(page, result)
             _check_stop(stop_check)
+            if result.message == EMPTY_NEW_RELEASES_MESSAGE:
+                break
             if page >= page_count:
                 break
             clicked = client.evaluate(_CLICK_NEXT_PAGE_SCRIPT, timeout=10)
@@ -792,9 +796,13 @@ def _capture_current_sellersprite_page(
     }
     meta_cache_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     _report(progress, 100, f"本页完成：页面产品 {best_product_count} 条，卖家精灵字段完整 {best_hydrated_count} 条")
+    empty_new_releases = EMPTY_NEW_RELEASES_TEXT in best_text.lower()
     required_count = best_product_count or expected_products
-    ok = best_hydrated_count >= required_count
-    message = "\u5237\u65b0\u5b8c\u6210\u3002" if ok else "\u5df2\u4fdd\u5b58\u5f53\u524d\u9875\u9762\u6570\u636e\uff0c\u4f46\u5356\u5bb6\u7cbe\u7075\u8865\u5145\u5b57\u6bb5\u4ecd\u672a\u5b8c\u5168\u52a0\u8f7d\u3002"
+    ok = empty_new_releases or best_hydrated_count >= required_count
+    if empty_new_releases:
+        message = EMPTY_NEW_RELEASES_MESSAGE
+    else:
+        message = "\u5237\u65b0\u5b8c\u6210\u3002" if ok else "\u5df2\u4fdd\u5b58\u5f53\u524d\u9875\u9762\u6570\u636e\uff0c\u4f46\u5356\u5bb6\u7cbe\u7075\u8865\u5145\u5b57\u6bb5\u4ecd\u672a\u5b8c\u5168\u52a0\u8f7d\u3002"
     return ChromeRefreshResult(ok, best_product_count, best_hydrated_count, len(best_images), source_url, message, next_page_url)
 
 
