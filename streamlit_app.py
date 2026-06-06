@@ -510,6 +510,8 @@ def ensure_state():
         st.session_state.collection_total_raw_count = 0
     if "collection_completed_seed_count" not in st.session_state:
         st.session_state.collection_completed_seed_count = 0
+    if "collection_failed_seed_count" not in st.session_state:
+        st.session_state.collection_failed_seed_count = 0
     if "collection_total_seed_count" not in st.session_state:
         st.session_state.collection_total_seed_count = 0
 
@@ -722,15 +724,21 @@ def reset_collection_run_messages() -> None:
     st.session_state.collection_staged_raw_products = []
     st.session_state.collection_total_raw_count = 0
     st.session_state.collection_completed_seed_count = 0
+    st.session_state.collection_failed_seed_count = 0
     st.session_state.collection_total_seed_count = 0
 
 
 def update_collection_total_status(placeholder=None) -> None:
     total_raw = int(st.session_state.get("collection_total_raw_count", 0) or 0)
     completed = int(st.session_state.get("collection_completed_seed_count", 0) or 0)
+    failed = int(st.session_state.get("collection_failed_seed_count", 0) or 0)
     total_seeds = int(st.session_state.get("collection_total_seed_count", 0) or 0)
     if total_seeds:
-        text = f"本轮所有已选类目累计原始产品：**{total_raw:,} 条**｜已完成小类入口：**{completed}/{total_seeds}**"
+        failure_text = f"｜失败入口：**{failed} 个**" if failed else ""
+        text = (
+            f"本轮所有已选类目累计原始产品：**{total_raw:,} 条**｜"
+            f"已处理小类入口：**{completed}/{total_seeds}**{failure_text}"
+        )
     else:
         text = f"本轮所有已选类目累计原始产品：**{total_raw:,} 条**"
     target = placeholder if placeholder is not None else st
@@ -2319,6 +2327,7 @@ def collect_sellersprite_batch_from_seeds(
     seed_summaries: list[dict] = []
     st.session_state.collection_total_seed_count = len(seed_urls)
     st.session_state.collection_completed_seed_count = 0
+    st.session_state.collection_failed_seed_count = 0
     st.session_state.collection_total_raw_count = 0
     update_collection_total_status(total_status_placeholder)
     for seed_index, (seed_label, seed_url) in enumerate(seed_urls, start=1):
@@ -2345,32 +2354,67 @@ def collect_sellersprite_batch_from_seeds(
                 raw_by_asin.setdefault(product.asin, product)
             stage_raw_products(list(raw_by_asin.values()))
             raise
-        added = 0
-        for product in seed_products:
-            if product.asin in raw_by_asin:
-                continue
-            raw_by_asin[product.asin] = product
-            added += 1
-        stage_raw_products(list(raw_by_asin.values()))
-        progress_bar.progress(
-            seed_end,
-            text=f"小类 {seed_index}/{len(seed_urls)} 完成：{seed_label}｜新增 ASIN {added} 条｜总原始去重 {len(raw_by_asin)} 条",
-        )
-        seed_summaries.append({
-            "label": seed_label,
-            "added": added,
-            "raw": len(seed_products),
-            "quality_ok": quality_ok,
-            "quality_message": quality_message,
-            "pages": page_read_count,
-        })
-        st.session_state.collection_completed_seed_count = seed_index
-        st.session_state.collection_total_raw_count = len(raw_by_asin)
-        update_collection_total_status(total_status_placeholder)
-        log(f"Seed {seed_index}/{len(seed_urls)} finished: {seed_label}. added raw {added}, total raw {len(raw_by_asin)}.")
+        except Exception as exc:
+            partial_products = st.session_state.get("collection_staged_raw_products", [])
+            added = 0
+            for product in partial_products:
+                if product.asin in raw_by_asin:
+                    continue
+                raw_by_asin[product.asin] = product
+                added += 1
+            stage_raw_products(list(raw_by_asin.values()))
+            st.session_state.collection_failed_seed_count += 1
+            error_message = str(exc).strip() or exc.__class__.__name__
+            seed_summaries.append({
+                "label": seed_label,
+                "added": added,
+                "raw": len(partial_products),
+                "quality_ok": False,
+                "quality_message": f"入口采集失败：{error_message}",
+                "pages": 0,
+                "failed": True,
+            })
+            progress_bar.progress(
+                seed_end,
+                text=(
+                    f"小类 {seed_index}/{len(seed_urls)} 失败，已保留部分数据并继续：{seed_label}｜"
+                    f"新增 ASIN {added} 条｜总原始去重 {len(raw_by_asin)} 条"
+                ),
+            )
+            log(
+                f"Seed {seed_index}/{len(seed_urls)} failed: {seed_label}. "
+                f"Kept {added} partial products. Error: {error_message}"
+            )
+        else:
+            added = 0
+            for product in seed_products:
+                if product.asin in raw_by_asin:
+                    continue
+                raw_by_asin[product.asin] = product
+                added += 1
+            stage_raw_products(list(raw_by_asin.values()))
+            progress_bar.progress(
+                seed_end,
+                text=f"小类 {seed_index}/{len(seed_urls)} 完成：{seed_label}｜新增 ASIN {added} 条｜总原始去重 {len(raw_by_asin)} 条",
+            )
+            seed_summaries.append({
+                "label": seed_label,
+                "added": added,
+                "raw": len(seed_products),
+                "quality_ok": quality_ok,
+                "quality_message": quality_message,
+                "pages": page_read_count,
+                "failed": False,
+            })
+            log(f"Seed {seed_index}/{len(seed_urls)} finished: {seed_label}. added raw {added}, total raw {len(raw_by_asin)}.")
+        finally:
+            st.session_state.collection_completed_seed_count = seed_index
+            st.session_state.collection_total_raw_count = len(raw_by_asin)
+            update_collection_total_status(total_status_placeholder)
     raise_if_stop_requested()
     progress_bar.progress(100, text=f"全部小类采集完成：原始去重合计 {len(raw_by_asin)} 条。现在可以应用筛选或查看产品列表。")
     ok_count = sum(1 for item in seed_summaries if item["quality_ok"])
+    failed_items = [item for item in seed_summaries if item.get("failed")]
     weak_items = [item for item in seed_summaries if not item["quality_ok"]]
     weak_preview = "；".join(f"{item['label']}（{item['quality_message']}）" for item in weak_items[:3])
     weak_suffix = f" 疑似漏采小类：{weak_preview}" if weak_preview else ""
@@ -2378,7 +2422,8 @@ def collect_sellersprite_batch_from_seeds(
         weak_suffix += f"；另有 {len(weak_items) - 3} 个小类请查看日志。"
     st.session_state.last_cache_refresh_message = (
         f"批量采集完成：计划入口 {len(seed_urls)} 个，实际处理 {len(seed_summaries)} 个；"
-        f"质量正常 {ok_count} 个，疑似漏采 {len(weak_items)} 个；原始去重合计 {len(raw_by_asin)} 条。"
+        f"质量正常 {ok_count} 个，失败 {len(failed_items)} 个，"
+        f"疑似漏采或失败 {len(weak_items)} 个；原始去重合计 {len(raw_by_asin)} 条。"
         f"{weak_suffix}"
     )
     return list(raw_by_asin.values())
