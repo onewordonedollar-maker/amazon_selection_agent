@@ -3371,6 +3371,9 @@ if st.session_state.show_category_dialog:
     render_category_dialog()
 
 with st.container(border=True):
+    data_source = "卖家精灵插件"
+    custom_url = ""
+    batch_category_collect = False
     setup_left, setup_right = st.columns([1, 1], vertical_alignment="top")
     with setup_left:
         list_type = st.radio(
@@ -3393,18 +3396,10 @@ with st.container(border=True):
         with category_count_col:
             st.caption(f"已选 {len(st.session_state.confirmed_category_paths)} 个类目")
     with setup_right:
-        data_source = "卖家精灵插件"
-        st.write("**数据源**")
-        st.markdown("<div class='source-static'>卖家精灵插件</div>", unsafe_allow_html=True)
-        custom_url = st.text_input(
-            T["custom_url"],
-            placeholder="https://www.amazon.com/...",
-            disabled=collection_locked,
-        )
-        batch_category_collect = st.checkbox(
-            "大类批量采集",
-            value=False,
-            help="打开当前大类页，自动发现小类链接，并逐个采集合格产品。",
+        marketplace = st.selectbox(
+            "站点",
+            ["美国站"],
+            index=0,
             disabled=collection_locked,
         )
 
@@ -3419,9 +3414,6 @@ with st.container(border=True):
     # Preparing every leaf URL can involve thousands of category paths.
     # Defer that work until collection starts so confirming the dialog stays responsive.
     mapped_seed_urls: list[tuple[str, str]] = []
-    if data_source == "卖家精灵插件" and batch_category_collect and selected_paths:
-        st.caption("批量采集入口将在点击“开始采集”后准备，避免选择类目时卡顿。")
-
     seller_cache_total = 0
     seller_cache_hydrated = 0
     chrome_ready = False
