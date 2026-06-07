@@ -2572,6 +2572,7 @@ def render_cards(products):
 ensure_state()
 collection_locked = bool(st.session_state.collection_in_progress)
 
+st.markdown("<span class='page-header-anchor'></span>", unsafe_allow_html=True)
 header_left, header_right = st.columns([4.5, 1.15], vertical_alignment="center")
 with header_right:
     UI_LANG = st.radio(
@@ -2597,7 +2598,7 @@ st.markdown(
         background: transparent;
     }
     .block-container {
-        padding-top: 1rem;
+        padding-top: 0.55rem;
         padding-left: 1.25rem;
         padding-right: 1.25rem;
         max-width: none;
@@ -2605,14 +2606,87 @@ st.markdown(
     }
     h1 {
         color: #222733;
-        font-size: clamp(30px, 3.4vw, 46px) !important;
+        font-size: clamp(28px, 2.8vw, 40px) !important;
         letter-spacing: 0 !important;
-        line-height: 1.08 !important;
-        margin-bottom: 8px !important;
+        line-height: 1.05 !important;
+        margin-bottom: 2px !important;
     }
     div[data-testid="stCaptionContainer"] {
         color: #8b94a3;
-        font-size: 14px;
+        font-size: 13px;
+    }
+    div[data-testid="stElementContainer"]:has(.page-header-anchor) {
+        display: none;
+    }
+    div[data-testid="stElementContainer"]:has(.page-header-anchor) + div[data-testid="stHorizontalBlock"] {
+        align-items: center !important;
+        margin-bottom: 0.35rem;
+    }
+    div[data-testid="stElementContainer"]:has(.page-header-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stVerticalBlock"] {
+        gap: 0.15rem !important;
+    }
+    div[data-testid="stElementContainer"]:has(.page-header-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stRadio"] {
+        margin-top: 0 !important;
+    }
+    div[data-testid="stElementContainer"]:has(.setup-panel-anchor) {
+        display: none;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.setup-panel-anchor) {
+        padding: 10px 12px 9px !important;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.setup-panel-anchor) > div > div[data-testid="stVerticalBlock"] {
+        gap: 0.45rem !important;
+    }
+    div[data-testid="stElementContainer"]:has(.setup-controls-anchor) {
+        display: none;
+    }
+    div[data-testid="stElementContainer"]:has(.setup-controls-anchor) + div[data-testid="stHorizontalBlock"] {
+        align-items: end !important;
+        gap: 14px !important;
+    }
+    div[data-testid="stElementContainer"]:has(.setup-controls-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stVerticalBlock"] {
+        gap: 0.3rem !important;
+    }
+    div[data-testid="stElementContainer"]:has(.setup-controls-anchor) + div[data-testid="stHorizontalBlock"] label {
+        color: #4f5867 !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        min-height: 20px !important;
+    }
+    div[data-testid="stElementContainer"]:has(.category-control-anchor) {
+        display: none;
+    }
+    div[data-testid="stElementContainer"]:has(.category-control-anchor) + div[data-testid="stHorizontalBlock"] {
+        gap: 8px !important;
+    }
+    div[data-testid="stElementContainer"]:has(.category-control-anchor) + div[data-testid="stHorizontalBlock"] > div:first-child {
+        flex: 1 1 auto !important;
+        min-width: 150px !important;
+    }
+    div[data-testid="stElementContainer"]:has(.category-control-anchor) + div[data-testid="stHorizontalBlock"] > div:last-child {
+        flex: 0 0 auto !important;
+        min-width: 82px !important;
+    }
+    div[data-testid="stElementContainer"]:has(.category-control-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stCaptionContainer"] {
+        line-height: 42px;
+        white-space: nowrap;
+    }
+    div[data-testid="stElementContainer"]:has(.setup-selection-anchor) {
+        display: none;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.setup-panel-anchor) div[data-testid="stAlert"] {
+        margin: 0 !important;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.setup-panel-anchor) div[data-testid="stAlert"] > div {
+        min-height: 38px !important;
+        padding: 8px 12px !important;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.setup-panel-anchor) div[data-testid="stAlert"] p {
+        font-size: 13px !important;
+        line-height: 1.35 !important;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.setup-panel-anchor) hr {
+        margin: 0.35rem 0 !important;
     }
     html:has(div[data-testid="stDialog"]),
     body:has(div[data-testid="stDialog"]) {
@@ -3449,8 +3523,13 @@ st.markdown(
             padding-right: 0.85rem;
         }
         h1 {
-            font-size: 32px !important;
+            font-size: 29px !important;
             max-width: 12em;
+        }
+        div[data-testid="stElementContainer"]:has(.setup-controls-anchor) + div[data-testid="stHorizontalBlock"] {
+            align-items: stretch !important;
+            flex-direction: column !important;
+            gap: 8px !important;
         }
         div[data-testid="stVerticalBlockBorderWrapper"] {
             padding: 6px;
@@ -3523,19 +3602,23 @@ if st.session_state.show_category_dialog:
     render_category_dialog()
 
 with st.container(border=True):
+    st.markdown("<span class='setup-panel-anchor'></span>", unsafe_allow_html=True)
     data_source = "卖家精灵插件"
     custom_url = ""
     batch_category_collect = False
-    setup_left, setup_right = st.columns([1, 1], vertical_alignment="top")
-    with setup_left:
+    st.markdown("<span class='setup-controls-anchor'></span>", unsafe_allow_html=True)
+    setup_list, setup_category, setup_site = st.columns([1.1, 1.65, 1], vertical_alignment="bottom")
+    with setup_list:
         list_type = st.radio(
             T["list_type"],
             ["New Releases", "Best Sellers"],
             horizontal=True,
             disabled=collection_locked,
         )
-        st.write(f"**{T['categories']}**")
-        category_button_col, category_count_col = st.columns([1, 1.35], vertical_alignment="center")
+    with setup_category:
+        st.markdown(f"<div class='filter-label'>{escape(T['categories'])}</div>", unsafe_allow_html=True)
+        st.markdown("<span class='category-control-anchor'></span>", unsafe_allow_html=True)
+        category_button_col, category_count_col = st.columns([1.5, 0.7], vertical_alignment="center")
         with category_button_col:
             if st.button(
                 "选择类目",
@@ -3547,7 +3630,7 @@ with st.container(border=True):
                 st.rerun()
         with category_count_col:
             st.caption(f"已选 {len(st.session_state.confirmed_category_paths)} 个类目")
-    with setup_right:
+    with setup_site:
         marketplace = st.selectbox(
             "站点",
             ["美国站"],
@@ -3557,12 +3640,11 @@ with st.container(border=True):
 
     selected_paths = st.session_state.confirmed_category_paths
     if selected_paths:
+        st.markdown("<span class='setup-selection-anchor'></span>", unsafe_allow_html=True)
         preview = selected_paths[:6]
         pills = "".join(f"<span class='selected-pill'>{escape(path)}</span>" for path in preview)
         more = f" +{len(selected_paths) - len(preview)}" if len(selected_paths) > len(preview) else ""
         st.markdown(pills + more, unsafe_allow_html=True)
-    else:
-        st.caption("暂未选择类目。")
     # Preparing every leaf URL can involve thousands of category paths.
     # Defer that work until collection starts so confirming the dialog stays responsive.
     mapped_seed_urls: list[tuple[str, str]] = []
