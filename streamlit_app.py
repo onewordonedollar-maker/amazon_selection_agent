@@ -2734,7 +2734,27 @@ st.markdown(
         border-bottom: 1px solid #e2e6ee;
     }
     div[data-testid="stTabs"] [role="tabpanel"] {
-        padding-top: 12px;
+        padding-top: 4px;
+    }
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-anchor) {
+        display: none;
+    }
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-anchor) + div[data-testid="stHorizontalBlock"] {
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+    }
+    div[data-testid="stElementContainer"]:has(.toolbar-spacer) {
+        display: none;
+    }
+    div[data-testid="stElementContainer"]:has(.seller-list-frame) {
+        height: 0 !important;
+        margin: 0 !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+        padding: 0 !important;
+    }
+    div[data-testid="stElementContainer"]:has(.seller-list-frame) + div[data-testid="stHorizontalBlock"] {
+        margin-top: 2px !important;
     }
     div[data-testid="stPopover"] button {
         border: 1px solid #d9dee8;
@@ -3192,7 +3212,7 @@ st.markdown(
         color: #ff7a1a;
     }
     .toolbar-spacer {
-        height: 12px;
+        height: 0;
     }
     .seller-list-frame {
         background: #f1f3f6;
@@ -4056,6 +4076,7 @@ with tab_cards:
         st.info(empty_products_message())
     else:
         selected_products = [p for p in products if p.selected]
+        st.markdown("<span class='cards-toolbar-anchor'></span>", unsafe_allow_html=True)
         toolbar = st.columns([0.45, 1.05, 1.05, 0.85, 1.0, 1.35, 0.9, 1.15, 0.95, 0.75], vertical_alignment="center")
         all_selected = bool(products) and len(selected_products) == len(products)
         select_summary = (
