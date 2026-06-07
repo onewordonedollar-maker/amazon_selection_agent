@@ -2748,6 +2748,35 @@ st.markdown(
     div[data-testid="stButton"] button {
         min-height: 42px;
     }
+    div[data-testid="stTextInput"] div[data-baseweb="input"],
+    div[data-testid="stNumberInput"] div[data-baseweb="input"],
+    div[data-testid="stSelectbox"] div[data-baseweb="select"] > div {
+        background: #ffffff !important;
+        border: 1px solid #cfd6e1 !important;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, .035) !important;
+        transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+    div[data-testid="stTextInput"] div[data-baseweb="input"]:hover,
+    div[data-testid="stNumberInput"] div[data-baseweb="input"]:hover,
+    div[data-testid="stSelectbox"] div[data-baseweb="select"] > div:hover {
+        border-color: #adb7c5 !important;
+    }
+    div[data-testid="stTextInput"] div[data-baseweb="input"]:focus-within,
+    div[data-testid="stNumberInput"] div[data-baseweb="input"]:focus-within,
+    div[data-testid="stSelectbox"] div[data-baseweb="select"] > div:focus-within {
+        border-color: #ff6b6d !important;
+        box-shadow: 0 0 0 2px rgba(255, 75, 75, .12) !important;
+    }
+    div[data-testid="stTextInput"] input,
+    div[data-testid="stNumberInput"] input {
+        background: #ffffff !important;
+        color: #2f3642 !important;
+    }
+    div[data-testid="stTextInput"] input::placeholder,
+    div[data-testid="stNumberInput"] input::placeholder {
+        color: #929baa !important;
+        opacity: 1 !important;
+    }
     div[data-testid="stButton"] button {
         align-items: center;
         display: inline-flex;
