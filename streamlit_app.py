@@ -2537,7 +2537,7 @@ def collect_sellersprite_batch_from_seeds(
 
 
 def render_cards(products):
-    st.markdown("<div class='seller-list-frame'>", unsafe_allow_html=True)
+    st.markdown("<span class='seller-list-frame seller-table-header-anchor'></span>", unsafe_allow_html=True)
     header_left, header_body = st.columns([0.035, 0.965], gap=None, vertical_alignment="top")
     with header_left:
         st.markdown("<div class='seller-select-header'></div>", unsafe_allow_html=True)
@@ -2739,9 +2739,16 @@ st.markdown(
     div[data-testid="stElementContainer"]:has(.cards-toolbar-anchor) {
         display: none;
     }
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-anchor) + div[data-testid="stLayoutWrapper"],
     div[data-testid="stElementContainer"]:has(.cards-toolbar-anchor) + div[data-testid="stHorizontalBlock"] {
+        background: #f4f5f7 !important;
+        box-shadow: 0 1px 0 rgba(15, 23, 42, .08);
         margin-top: 0 !important;
         margin-bottom: 0 !important;
+        padding: 5px 0 4px !important;
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 80 !important;
     }
     div[data-testid="stElementContainer"]:has(.toolbar-spacer) {
         display: none;
@@ -2753,8 +2760,14 @@ st.markdown(
         overflow: hidden !important;
         padding: 0 !important;
     }
-    div[data-testid="stElementContainer"]:has(.seller-list-frame) + div[data-testid="stHorizontalBlock"] {
-        margin-top: 2px !important;
+    div[data-testid="stElementContainer"]:has(.seller-table-header-anchor) + div[data-testid="stLayoutWrapper"],
+    div[data-testid="stElementContainer"]:has(.seller-table-header-anchor) + div[data-testid="stHorizontalBlock"] {
+        background: #f6f7f9 !important;
+        box-shadow: 0 2px 4px rgba(15, 23, 42, .08);
+        margin-top: 0 !important;
+        position: sticky !important;
+        top: 56px !important;
+        z-index: 79 !important;
     }
     div[data-testid="stPopover"] button {
         border: 1px solid #d9dee8;
@@ -3233,16 +3246,14 @@ st.markdown(
         height: 10px;
     }
     .seller-select-header {
-        background: transparent;
+        background: #f6f7f9;
         border-top: 0;
         border-bottom: 0;
         border-left: 0;
         border-right: 0;
         box-shadow: none;
         min-height: 58px;
-        position: sticky;
-        top: 0;
-        z-index: 20;
+        position: static;
     }
     .seller-select-cell {
         align-items: flex-start;
@@ -3270,9 +3281,7 @@ st.markdown(
         font-weight: 700;
         min-height: 58px;
         padding: 8px 10px;
-        position: sticky;
-        top: 0;
-        z-index: 20;
+        position: static;
         box-shadow: none;
     }
     .seller-header span {
