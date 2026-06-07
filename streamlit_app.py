@@ -1271,7 +1271,8 @@ def build_collection_plan_text(selected_paths: list[str], custom_url: str, batch
         return "采集计划：使用自定义 Amazon 榜单链接，读取第 1 页和第 2 页；采完后先进入原始池，再应用当前筛选条件。"
     if not selected_paths:
         return "采集计划：暂未选择类目。请选择类目，或填写一个具体 Amazon 榜单链接。"
-    if batch_collect or selection_contains_parent_category(selected_paths):
+    selected_seed_paths = compact_category_paths(selected_paths)
+    if batch_collect or len(selected_seed_paths) > 1 or selection_contains_parent_category(selected_seed_paths):
         count = len(seed_urls)
         if count:
             suffix = "入口较多，预计耗时较长；建议先选择更小的类目试跑。" if count >= 20 else "每个入口读取第 1 页和第 2 页。"
@@ -2226,10 +2227,8 @@ def sellersprite_collection_quality(products: list[Product], refresh_results: li
         return False, "没有读取到页面"
     if any(result.message == EMPTY_NEW_RELEASES_MESSAGE for result in refresh_results):
         return True, EMPTY_NEW_RELEASES_MESSAGE
-    page_counts = [
-        max(int(getattr(result, "product_count", 0) or 0), int(getattr(result, "hydrated_count", 0) or 0))
-        for result in refresh_results
-    ]
+    page_counts = [int(getattr(result, "product_count", 0) or 0) for result in refresh_results]
+    hydrated_counts = [int(getattr(result, "hydrated_count", 0) or 0) for result in refresh_results]
     page_detail = "；".join(
         f"第{i + 1}页：页面产品 {int(getattr(result, 'product_count', 0) or 0)} 条，"
         f"卖家精灵字段完整 {int(getattr(result, 'hydrated_count', 0) or 0)} 条"
@@ -2245,6 +2244,16 @@ def sellersprite_collection_quality(products: list[Product], refresh_results: li
     if weak_pages:
         return False, (
             f"页面产品数偏少：{'，'.join(weak_pages)}；预期每页接近 {SELLERSPRITE_EXPECTED_PRODUCTS_PER_PAGE} 条。"
+            f"{page_detail}。"
+        )
+    weak_plugin_pages = [
+        f"第{i + 1}页 {hydrated_count}/{product_count} 条"
+        for i, (product_count, hydrated_count) in enumerate(zip(page_counts[:2], hydrated_counts[:2]))
+        if hydrated_count < min(product_count, SELLERSPRITE_MIN_PRODUCTS_PER_PAGE)
+    ]
+    if weak_plugin_pages:
+        return False, (
+            f"卖家精灵父体月销量字段未加载完整：{'，'.join(weak_plugin_pages)}。"
             f"{page_detail}。"
         )
     if len(products) < SELLERSPRITE_MIN_PRODUCTS_TWO_PAGES:
@@ -3915,9 +3924,15 @@ if run:
     try:
         collected_products = []
         if data_source == "卖家精灵插件":
-            should_batch_category_collect = batch_category_collect or selection_contains_parent_category(selected_paths)
+            selected_seed_paths = compact_category_paths(selected_paths)
+            should_batch_category_collect = (
+                batch_category_collect
+                or len(selected_seed_paths) > 1
+                or selection_contains_parent_category(selected_seed_paths)
+            )
             if should_batch_category_collect:
-                seed_urls = resolve_category_seed_urls(selected_paths, custom_url)
+                seed_urls = resolve_category_seed_urls(selected_seed_paths, custom_url)
+                target_url = seed_urls[0][1] if len(seed_urls) == 1 else ""
                 collection_label = "；".join(selected_paths[:3]) if selected_paths else "自定义链接"
                 if len(selected_paths) > 3:
                     collection_label += f" +{len(selected_paths) - 3}"

@@ -42,6 +42,19 @@ class SellerSpriteParserTests(unittest.TestCase):
 
         self.assertEqual(1, count_hydrated_products(text))
 
+    def test_hydrated_count_requires_parent_monthly_sales_marker(self):
+        text = (
+            "\n#1\nASIN:B0GSTH883W\n"
+            "\u9500\u552e\u989d: $51,583\n"
+            "FBA\u8d39\u7528: $8.50\n"
+            "\n#2\nASIN:B000000002\n"
+            "\u8fd130\u5929\u9500\u91cf(\u7236\u4f53): < 5\n"
+            "\n#3\nASIN:B000000003\n"
+            "\u8fd130\u5929\u9500\u91cf(\u7236\u4f53): N/A\n"
+        )
+
+        self.assertEqual(2, count_hydrated_products(text))
+
 
 if __name__ == "__main__":
     unittest.main()
