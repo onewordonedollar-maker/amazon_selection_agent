@@ -522,6 +522,16 @@ def ensure_state():
         st.session_state.collection_failed_seed_details = []
     if "collection_total_seed_count" not in st.session_state:
         st.session_state.collection_total_seed_count = 0
+    if st.session_state.get("filter_preset_version", 0) < 2:
+        if st.session_state.get("filter_price_max") in (None, "200", "200.00"):
+            st.session_state.filter_price_max = ""
+        if st.session_state.get("filter_reviews_max") in (None, "300"):
+            st.session_state.filter_reviews_max = "1000"
+        if "filter_price_min" not in st.session_state:
+            st.session_state.filter_price_min = "24.99"
+        if "filter_monthly_sales_min" not in st.session_state:
+            st.session_state.filter_monthly_sales_min = "100"
+        st.session_state.filter_preset_version = 2
 
 
 def log(message: str):
@@ -3778,11 +3788,11 @@ with st.container(border=True):
     filter_top = st.columns(3)
     with filter_top[0]:
         min_price_raw, max_price_raw = render_range_filter(
-            T["price"], "filter_price", "24.99", "200.00", money=True, disabled=collection_locked
+            T["price"], "filter_price", "24.99", "", money=True, disabled=collection_locked
         )
     with filter_top[1]:
         min_reviews_raw, max_reviews_raw = render_range_filter(
-            T["reviews"], "filter_reviews", "", "300", disabled=collection_locked
+            T["reviews"], "filter_reviews", "", "1000", disabled=collection_locked
         )
     with filter_top[2]:
         min_bought_raw, max_bought_raw = render_range_filter(
