@@ -609,8 +609,23 @@ def product_from_dict(data: dict) -> Product:
         else:
             values[name] = None
     product = Product(**values)
+    repair_product_price(product)
     product.selected = False
     return product
+
+
+def repair_product_price(product: Product) -> None:
+    if not product.sales_amount or not product.monthly_bought:
+        return
+    inferred_price = round(product.sales_amount / product.monthly_bought, 2)
+    price_matches_fba = (
+        product.price
+        and product.fba_fee
+        and abs(product.price - product.fba_fee) < 0.01
+        and inferred_price > product.price * 1.5
+    )
+    if product.price <= 0 or price_matches_fba:
+        product.price = inferred_price
 
 
 def safe_slug(value: str) -> str:
@@ -1282,6 +1297,8 @@ def build_collection_plan_text(selected_paths: list[str], custom_url: str, batch
 
 
 def apply_filters_to_raw_pool(filters: dict) -> None:
+    for product in st.session_state.raw_products:
+        repair_product_price(product)
     selected_by_asin = {product.asin: product.selected for product in st.session_state.products}
     filtered_products = apply_product_filters(st.session_state.raw_products, filters)
     for product in filtered_products:
