@@ -55,6 +55,47 @@ class SellerSpriteParserTests(unittest.TestCase):
 
         self.assertEqual(2, count_hydrated_products(text))
 
+    def test_offer_price_does_not_fall_through_to_fba_fee(self):
+        text = (
+            "\n#1\nActual product title\n1 offer from $43.02\n"
+            "ASIN:B0GSTH883W\n"
+            "\u8fd130\u5929\u9500\u91cf(\u7236\u4f53): 775\n"
+            "\u9500\u552e\u989d: $33,798\n"
+            "FBA\u8d39\u7528:\n$15.68\n"
+        )
+
+        product = parse_sellersprite_text(text, limit=50)[0]
+
+        self.assertEqual(43.02, product.price)
+        self.assertEqual("Actual product title", product.title)
+        self.assertEqual(15.68, product.fba_fee)
+
+    def test_labeled_price_wins_over_standalone_fba_fee(self):
+        text = (
+            "\n#1\nActual product title\nASIN:B000000002\n"
+            "\u4ef7\u683c:$189.99\n"
+            "\u8fd130\u5929\u9500\u91cf(\u7236\u4f53): 684\n"
+            "FBA\u8d39\u7528:\n$11.13\n"
+        )
+
+        product = parse_sellersprite_text(text, limit=50)[0]
+
+        self.assertEqual(189.99, product.price)
+        self.assertEqual(11.13, product.fba_fee)
+
+    def test_missing_card_price_is_inferred_from_sales(self):
+        text = (
+            "\n#1\nActual product title\nASIN:B000000003\n"
+            "\u8fd130\u5929\u9500\u91cf(\u7236\u4f53): 295\n"
+            "\u9500\u552e\u989d: $58,997\n"
+            "FBA\u8d39\u7528:\n$17.89\n"
+        )
+
+        product = parse_sellersprite_text(text, limit=50)[0]
+
+        self.assertEqual(199.99, product.price)
+        self.assertEqual(17.89, product.fba_fee)
+
 
 if __name__ == "__main__":
     unittest.main()

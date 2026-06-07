@@ -117,6 +117,11 @@ def parse_product_block(block: str, asin: str) -> SellerSpriteProduct:
     bsr_rank, bsr_category = extract_rank_category(block, 0)
     sub_rank, sub_category = extract_rank_category(block, 1)
     child_label = find_first(r"近30天销量\(子体\):\s*([0-9,KkMm\+,.]+)", block)
+    parent_monthly_sales = parse_int(find_first(r"近30天销量\(父体\):\s*([0-9,]+)", block))
+    sales_amount = parse_money(find_first(r"销售额:\s*\$?([0-9,]+(?:\.[0-9]+)?)", block))
+    labeled_price = parse_money(find_first(r"价格:\s*\$?([0-9,]+(?:\.[0-9]+)?)", block))
+    card_price = extract_price(lines, asin_index)
+    inferred_price = round(sales_amount / parent_monthly_sales, 2) if sales_amount and parent_monthly_sales else 0.0
     return SellerSpriteProduct(
         rank=rank,
         title=title,
@@ -129,14 +134,14 @@ def parse_product_block(block: str, asin: str) -> SellerSpriteProduct:
         bsr_category=bsr_category,
         sub_rank=sub_rank,
         sub_category=sub_category,
-        parent_monthly_sales=parse_int(find_first(r"近30天销量\(父体\):\s*([0-9,]+)", block)),
+        parent_monthly_sales=parent_monthly_sales,
         child_monthly_sales=parse_compact_int(child_label),
         child_monthly_sales_label=child_label,
-        sales_amount=parse_money(find_first(r"销售额:\s*\$?([0-9,]+(?:\.[0-9]+)?)", block)),
+        sales_amount=sales_amount,
         fba_fee=parse_money(find_first(r"FBA费用:\s*\n?\$?([0-9,]+(?:\.[0-9]+)?)", block)),
         margin_rate=find_first(r"毛利率:\s*([^\n]+)", block),
         variant_count=parse_int(find_first(r"变体数:\s*([0-9,]+)", block)),
-        price=extract_price(lines) or parse_money(find_first(r"价格:\s*\$?([0-9,]+(?:\.[0-9]+)?)", block)),
+        price=labeled_price or card_price or inferred_price,
         rating=rating,
         review_count=reviews,
         package_weight_lb=parse_weight_lb(find_first(r"包装重量:\s*([^\n]+)", block)),
@@ -151,6 +156,8 @@ def extract_title(lines: list[str], asin_index: int) -> str:
     for i in range(asin_index - 1, max(-1, asin_index - 8), -1):
         line = lines[i]
         if line.startswith("$") or "out of 5 stars" in line or re.fullmatch(r"[0-9,]+", line):
+            continue
+        if re.search(r"\boffers?\s+from\s+\$", line, flags=re.I):
             continue
         if line.startswith("#"):
             continue
@@ -171,10 +178,14 @@ def extract_rating_reviews(lines: list[str]) -> tuple[float, int]:
     return rating, reviews
 
 
-def extract_price(lines: list[str]) -> float:
-    for line in lines:
+def extract_price(lines: list[str], asin_index: int = -1) -> float:
+    candidate_lines = lines[:asin_index] if asin_index > 0 else []
+    for line in reversed(candidate_lines):
         if re.fullmatch(r"\$[0-9,]+(?:\.[0-9]+)?", line):
             return parse_money(line)
+        offer_match = re.search(r"\boffers?\s+from\s+\$([0-9,]+(?:\.[0-9]+)?)", line, flags=re.I)
+        if offer_match:
+            return parse_money(offer_match.group(1))
     return 0.0
 
 
