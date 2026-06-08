@@ -275,7 +275,16 @@ def discover_bestseller_category_links(
         raw_links = client.evaluate(
             r"""
             (() => {
-              const anchors = Array.from(document.querySelectorAll('a[href]'));
+              const browseGroups = Array.from(
+                document.querySelectorAll('ul[class*="zg-browse-group"]')
+              );
+              const browseRoot =
+                document.querySelector('#zg_browseRoot') ||
+                document.querySelector('[data-csa-c-slot-id*="browse"]') ||
+                document.querySelector('[class*="browseRoot"]') ||
+                (browseGroups[0] && browseGroups[0].parentElement);
+              if (!browseRoot) return [];
+
               const nodeFromHref = (href) => {
                 try {
                   const url = new URL(href, location.href);
@@ -285,34 +294,36 @@ def discover_bestseller_category_links(
                   return '';
                 }
               };
-              const rowFor = (anchor) => {
-                const candidates = [anchor.closest('li'), anchor.closest('[role="treeitem"]'), anchor.closest('div')];
-                return candidates.find(Boolean) || anchor.parentElement;
-              };
-              const depthFor = (anchor) => {
-                const row = rowFor(anchor);
-                const ariaLevel = row && row.getAttribute && row.getAttribute('aria-level');
-                if (ariaLevel && /^\\d+$/.test(ariaLevel)) return parseInt(ariaLevel, 10);
-                let depth = 0;
-                let node = anchor.parentElement;
-                while (node && node !== document.body) {
-                  if (node.tagName === 'UL' || node.tagName === 'OL' || node.getAttribute('role') === 'group') depth += 1;
-                  node = node.parentElement;
+              const directAnchor = (item) => {
+                if (!item) return null;
+                for (const child of Array.from(item.children || [])) {
+                  if (child.tagName === 'A' && child.href) return child;
+                  const anchor = child.querySelector && child.querySelector(':scope > a[href]');
+                  if (anchor) return anchor;
                 }
-                return depth;
+                return null;
               };
-              return anchors.map((anchor, index) => {
-                const item = rowFor(anchor);
-                const href = anchor.href;
-                const node = nodeFromHref(href);
-                const descendants = item ? Array.from(item.querySelectorAll('a[href]')).filter((child) => child !== anchor) : [];
+
+              const selected =
+                browseRoot.querySelector('.zg_selected') ||
+                browseRoot.querySelector('[aria-current="page"]') ||
+                null;
+              const childGroup = browseGroups[browseGroups.length - 1] || null;
+              if (!childGroup || (selected && childGroup.contains(selected))) return [];
+              const childItems = Array.from(childGroup.children || []).filter(
+                (child) =>
+                  child.tagName === 'LI' ||
+                  child.getAttribute('role') === 'treeitem'
+              );
+
+              return childItems.map((item, index) => {
+                const anchor = directAnchor(item);
                 return {
                   index,
                   title: (anchor.innerText || anchor.textContent || anchor.getAttribute('aria-label') || '').trim(),
-                  href,
-                  node,
-                  hasChildren: descendants.some((child) => nodeFromHref(child.href)),
-                  depth: depthFor(anchor)
+                  href: anchor.href,
+                  node: nodeFromHref(anchor.href),
+                  hasChildren: true
                 };
               });
             })()
@@ -323,37 +334,8 @@ def discover_bestseller_category_links(
         client.close()
         close_tab(target.get("id"), port=port)
 
-    nav_links = [
-        item for item in raw_links
-        if "/zgbs/" in str(item.get("href") or "") or "/new-releases/" in str(item.get("href") or "")
-    ]
-    source_links = nav_links or raw_links
-    for index, item in enumerate(source_links):
-        depth = int(item.get("depth") or 0)
-        item["_has_depth_child"] = False
-        for next_item in source_links[index + 1:]:
-            next_depth = int(next_item.get("depth") or 0)
-            if next_depth <= depth:
-                break
-            next_href = str(next_item.get("href") or "")
-            if "/zgbs/" in next_href or f"/gp/{list_kind}/" in next_href or "/new-releases/" in next_href:
-                item["_has_depth_child"] = True
-                break
-
     links: list[CategoryLink] = []
     seen: set[str] = set()
-    department_started = False
-    department_text = department_slug.replace("-", "")
-    footer_break_titles = {
-        "start a selling account",
-        "create your free business account",
-        "reload your balance",
-        "gift cards",
-        "amazon currency converter",
-        "let us help you",
-        "amazon payment products",
-        "make money with us",
-    }
     ignored_titles = {
         "any department",
         "amazon best sellers",
@@ -378,20 +360,12 @@ def discover_bestseller_category_links(
         "self-publish with us",
         "host an amazon hub",
     }
-    path_stack: list[str] = []
-    base_depth: int | None = None
-    for item in source_links:
+    for item in raw_links:
         href = str(item.get("href") or "")
         title = re.sub(r"\s+", " ", str(item.get("title") or "")).strip()
         if not href or not title:
             continue
         lowered_title = title.lower()
-        if department_started and links and lowered_title in footer_break_titles:
-            break
-        title_key = re.sub(r"[^a-z0-9]+", "", title.lower())
-        if department_text and title_key == department_text:
-            department_started = True
-            continue
         absolute = urljoin(f"{parsed_seed.scheme}://{parsed_seed.netloc}", href)
         normalized = absolute.split("/ref=", 1)[0].rstrip("/")
         parsed_link = urlparse(absolute)
@@ -412,8 +386,6 @@ def discover_bestseller_category_links(
             node = parse_qs(parsed_link.query).get("node", [""])[0]
             if not node or not department_slug:
                 continue
-            if not department_started:
-                continue
             category_url = f"{parsed_seed.scheme}://{parsed_seed.netloc}/gp/{list_kind}/{department_slug}/{node}"
             normalized = category_url.rstrip("/")
         if node and node == current_node:
@@ -422,25 +394,15 @@ def discover_bestseller_category_links(
             continue
         if lowered_title in ignored_titles:
             continue
-        depth = int(item.get("depth") or 0)
-        if base_depth is None:
-            base_depth = depth
-        relative_depth = max(0, depth - base_depth)
-        if relative_depth > len(path_stack):
-            relative_depth = len(path_stack)
-        path_stack = path_stack[:relative_depth]
-        path_stack.append(title)
-        category_path = " > ".join(path_stack)
-        is_leaf = not (item.get("hasChildren") or item.get("_has_depth_child"))
         seen.add(normalized)
         links.append(
             CategoryLink(
                 title=title,
                 url=category_url,
                 node=node,
-                depth=depth,
-                is_leaf=is_leaf,
-                path=category_path,
+                depth=1,
+                is_leaf=not bool(item.get("hasChildren")),
+                path=title,
             )
         )
         if len(links) >= max_links:

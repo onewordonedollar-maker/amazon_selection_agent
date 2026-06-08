@@ -20,6 +20,12 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from src.amazon_scraper import DEFAULT_TEST_URL, fetch_best_sellers
+from src.category_mapping import (
+    AIR_FRYERS_PATH,
+    AIR_FRYERS_URL,
+    category_url_matches_path,
+    is_legacy_home_path,
+)
 from src.chrome_cdp import (
     chrome_debugger_available,
     discover_bestseller_category_links,
@@ -135,58 +141,19 @@ CATEGORIES = {
     "Home & Kitchen": {
         "zh": "家居厨房",
         "count": 245980,
-        "children": {
-            "Kitchen & Dining": {
-                "zh": "厨房餐厨",
-                "count": 68220,
-                "children": {
-                    "Coffee Machines": {"zh": "咖啡机", "count": 2534},
-                    "Air Fryers": {"zh": "空气炸锅", "count": 1876},
-                    "Food Storage": {"zh": "食品收纳", "count": 5210},
-                    "Kitchen Gadgets": {"zh": "厨房工具", "count": 14680},
-                },
-            },
-            "Storage & Organization": {
-                "zh": "收纳整理",
-                "count": 54310,
-                "children": {
-                    "Closet Systems": {"zh": "衣柜系统", "count": 4280},
-                    "Laundry Storage": {"zh": "洗衣收纳", "count": 3610},
-                    "Kitchen Storage": {"zh": "厨房收纳", "count": 9212},
-                },
-            },
-        },
+        "children": {},
     },
     "Pet Supplies": {
         "zh": "宠物用品",
         "count": 115420,
-        "children": {
-            "Dogs": {
-                "zh": "狗用品",
-                "count": 58400,
-                "children": {
-                    "Dog Carriers": {"zh": "狗包/狗笼", "count": 3180},
-                    "Dog Grooming": {"zh": "狗狗美容", "count": 4260},
-                    "Dog Feeding": {"zh": "狗狗喂食", "count": 6170},
-                    "Dog Toys": {"zh": "狗玩具", "count": 9150},
-                },
-            },
-            "Cats": {
-                "zh": "猫用品",
-                "count": 36200,
-                "children": {
-                    "Cat Litter": {"zh": "猫砂", "count": 1980},
-                    "Cat Trees": {"zh": "猫爬架", "count": 2780},
-                    "Cat Grooming": {"zh": "猫咪美容", "count": 1640},
-                },
-            },
-        },
+        "children": {},
     },
 }
 
 CATEGORY_BESTSELLER_URLS = {
     "Appliances": "https://www.amazon.com/gp/bestsellers/appliances/ref=zg_bs_nav_appliances_0",
     "Home & Kitchen": "https://www.amazon.com/gp/bestsellers/home-garden/ref=zg_bs_nav_home-garden_0",
+    AIR_FRYERS_PATH: AIR_FRYERS_URL,
     "Pet Supplies": "https://www.amazon.com/gp/bestsellers/pet-supplies/ref=zg_bs_nav_pet-supplies_0",
     "Pet Supplies > Dogs": "https://www.amazon.com/gp/bestsellers/pet-supplies/2975312011",
     "Pet Supplies > Dogs > Dog Carriers": "https://www.amazon.com/gp/bestsellers/pet-supplies/2975333011",
@@ -817,9 +784,13 @@ def display_categories_cached(mtime: float) -> dict:
     categories = deepcopy(CATEGORIES)
     learned = load_learned_category_links_cached(mtime).get("categories", {})
     allowed_roots = set(categories)
-    for path in learned:
+    for path, payload in learned.items():
         parts = [part.strip() for part in path.split(" > ") if part.strip()]
         if not parts or parts[0] not in allowed_roots:
+            continue
+        if not category_url_matches_path(path, str(payload.get("url") or "")):
+            continue
+        if is_legacy_home_path(path):
             continue
         current = categories
         for part in parts:
@@ -854,6 +825,10 @@ def save_learned_category_links(seed_label: str, links) -> None:
                 continue
             if not storage_title.startswith(seed_label):
                 storage_title = f"{seed_label} > {storage_title}"
+        if not category_url_matches_path(storage_title, url):
+            continue
+        if is_legacy_home_path(storage_title):
+            continue
         categories[storage_title] = {
             "title": title,
             "url": url,
@@ -882,6 +857,10 @@ def learned_category_lookup(mtime: float) -> tuple[dict[str, str], tuple[tuple[s
     for title, payload in learned.items():
         url = str(payload.get("url") or "")
         if not title or not url:
+            continue
+        if not category_url_matches_path(title, url):
+            continue
+        if is_legacy_home_path(title):
             continue
         exact[title] = url
         normalized.append((normalize_category_text(title), url))

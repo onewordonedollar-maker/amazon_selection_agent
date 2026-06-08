@@ -1,7 +1,8 @@
 __pycache__/
 *.pyc
 .streamlit/
-outputs/
+outputs/*
+!outputs/category_links_learned.json
 chrome_profile/
 
 # Local editor/runtime noise
