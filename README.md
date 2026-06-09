@@ -80,3 +80,14 @@ The following folders are intentionally not committed:
 - `chrome_profile/`: Amazon login and extension state
 - Runtime files in `outputs/`, except the validated category mapping
 - Python caches and virtual environments
+
+## Maintenance Notes
+
+Before changing collection, filtering, category mapping, or UI behavior, read:
+
+```text
+docs/lessons-learned/
+```
+
+It contains the project guardrails, known failure modes, tool handoff rules,
+and the stable-release checklist.
