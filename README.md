@@ -64,9 +64,9 @@ The repository includes the validated category mapping file:
 outputs/category_links_learned.json
 ```
 
-Home & Kitchen and Pet Supplies mappings are built from live Amazon Best
-Sellers category navigation. Runtime collection results, checkpoints,
-backups, and browser data remain excluded from Git.
+Appliances, Home & Kitchen, and Pet Supplies mappings are built from live
+Amazon Best Sellers category navigation. Runtime collection results,
+checkpoints, backups, and browser data remain excluded from Git.
 
 ## Export
 

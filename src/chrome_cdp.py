@@ -36,6 +36,9 @@ def _interruptible_sleep(seconds: float, stop_check=None, interval: float = 0.2)
 SELLERSPRITE_MARKERS = ("近30天销量(父体)", "销售额", "FBA费用")
 
 
+INVALID_RANK_CATEGORY_PREFIX = "榜单入口校验失败"
+
+
 @dataclass
 class ChromeRefreshResult:
     ok: bool
@@ -69,6 +72,43 @@ def is_rank_category_url(url: str) -> bool:
     path_node = re.search(r"/(\d{5,})(?:/|$)", path_after_department)
     query_node = parse_qs(parsed.query).get("node", [""])[0]
     return bool(path_node or query_node)
+
+
+def rank_category_identity(url: str) -> tuple[str, str]:
+    parsed = urlparse(url or "")
+    match = re.search(
+        r"/gp/(?:bestsellers|new-releases)/([^/?#]+)(?:/(\d{5,}))?",
+        parsed.path,
+    )
+    if not match:
+        return "", ""
+    department = match.group(1).strip("/")
+    node = match.group(2) or parse_qs(parsed.query).get("node", [""])[0]
+    return department, node
+
+
+def validate_rank_category_page(expected_url: str, page_state: dict | None) -> tuple[bool, str]:
+    state = page_state if isinstance(page_state, dict) else {}
+    actual_url = str(state.get("url") or "")
+    selected_text = re.sub(r"\s+", " ", str(state.get("selectedText") or "")).strip()
+    unavailable_text = re.sub(r"\s+", " ", str(state.get("unavailableText") or "")).strip()
+    expected_department, expected_node = rank_category_identity(expected_url)
+    actual_department, actual_node = rank_category_identity(actual_url)
+
+    if not expected_department or not expected_node:
+        return False, f"{INVALID_RANK_CATEGORY_PREFIX}：请求链接不是具体榜单类目页。"
+    if actual_department != expected_department or actual_node != expected_node:
+        return (
+            False,
+            f"{INVALID_RANK_CATEGORY_PREFIX}：页面跳离目标类目 "
+            f"({expected_department}/{expected_node} -> {actual_department or '-'}"
+            f"/{actual_node or '-'}）。",
+        )
+    if selected_text.lower().startswith("any department"):
+        return False, f"{INVALID_RANK_CATEGORY_PREFIX}：Amazon 将入口回退到了 Any Department。"
+    if unavailable_text:
+        return False, f"{INVALID_RANK_CATEGORY_PREFIX}：{unavailable_text}"
+    return True, ""
 
 
 class CDPError(RuntimeError):
@@ -576,6 +616,7 @@ def refresh_sellersprite_cache_pages(
                 dom_cache_path,
                 image_cache_path,
                 meta_cache_path,
+                expected_category_url=url,
                 expected_products=expected_products,
                 progress=page_progress,
                 stop_check=stop_check,
@@ -621,6 +662,7 @@ def _capture_current_sellersprite_page(
     dom_cache_path: Path,
     image_cache_path: Path,
     meta_cache_path: Path,
+    expected_category_url: str = "",
     expected_products: int = 50,
     max_rounds: int = 24,
     wait_seconds: float = 2.5,
@@ -657,6 +699,20 @@ def _capture_current_sellersprite_page(
     client.evaluate(_SCROLL_TOP_SCRIPT, timeout=10)
     _interruptible_sleep(5, stop_check)
     observe_best()
+    page_state = client.evaluate(_RANK_PAGE_STATE_SCRIPT, timeout=10) or {}
+    page_valid, page_error = validate_rank_category_page(
+        expected_category_url or source_url,
+        page_state,
+    )
+    if not page_valid:
+        return ChromeRefreshResult(
+            False,
+            best_product_count,
+            best_hydrated_count,
+            len(best_images),
+            str(page_state.get("url") or source_url),
+            page_error,
+        )
     _report(progress, 18, f"顶部检测：页面产品 {best_product_count} 条，卖家精灵字段完整 {best_hydrated_count} 条")
 
     _report(progress, 35, "中部加载：滚到页面中部，等待懒加载商品和插件字段（约 5 秒）")
@@ -808,6 +864,30 @@ def _remember_sellersprite_snapshot(
         for asin, src in images.items():
             if asin and src and asin not in seen_images:
                 seen_images[asin] = src
+
+
+_RANK_PAGE_STATE_SCRIPT = r"""
+(() => {
+  const selected =
+    document.querySelector('#zg_browseRoot .zg_selected') ||
+    document.querySelector('#zg_browseRoot [aria-current="page"]') ||
+    document.querySelector('ul[class*="zg-browse-group"] .zg_selected') ||
+    document.querySelector('ul[class*="zg-browse-group"] [aria-current="page"]');
+  const bodyText = document.body ? document.body.innerText : "";
+  const unavailablePhrases = [
+    "sorry, we couldn't find that page",
+    "page not found",
+    "the web address you entered is not a functioning page on our site"
+  ];
+  const lowered = bodyText.toLowerCase();
+  return {
+    url: location.href,
+    selectedText: selected ? (selected.innerText || selected.textContent || "").trim() : "",
+    unavailableText:
+      unavailablePhrases.find((phrase) => lowered.includes(phrase)) || ""
+  };
+})()
+"""
 
 
 _SCROLL_BOTTOM_SCRIPT = r"""

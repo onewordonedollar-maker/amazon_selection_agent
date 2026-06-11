@@ -171,1149 +171,6 @@
       "source": "Pet Supplies > Small Animals > Odor & Stain Removers",
       "updated_at": "2026-05-25T23:58:55"
     },
-    "Appliances > Appliance Warranties": {
-      "title": "Appliance Warranties",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2242350011",
-      "source": "Appliances",
-      "updated_at": "2026-05-27T23:08:11"
-    },
-    "Appliances > Cooktops": {
-      "title": "Cooktops",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741261",
-      "source": "Appliances",
-      "updated_at": "2026-05-27T23:08:11"
-    },
-    "Appliances > Dishwashers": {
-      "title": "Dishwashers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741271",
-      "source": "Appliances",
-      "updated_at": "2026-05-27T23:08:11"
-    },
-    "Appliances > Freezers": {
-      "title": "Freezers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741331",
-      "source": "Appliances",
-      "updated_at": "2026-05-27T23:08:11"
-    },
-    "Appliances > Ice Makers": {
-      "title": "Ice Makers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399939011",
-      "source": "Appliances",
-      "updated_at": "2026-05-27T23:08:11"
-    },
-    "Appliances > Range Hoods": {
-      "title": "Range Hoods",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741441",
-      "source": "Appliances",
-      "updated_at": "2026-05-27T23:08:11"
-    },
-    "Appliances > Ranges": {
-      "title": "Ranges",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741411",
-      "source": "Appliances",
-      "updated_at": "2026-05-27T23:08:11"
-    },
-    "Appliances > Refrigerators": {
-      "title": "Refrigerators",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741361",
-      "source": "Appliances",
-      "updated_at": "2026-05-27T23:08:11"
-    },
-    "Appliances > Wall Ovens": {
-      "title": "Wall Ovens",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741481",
-      "source": "Appliances",
-      "updated_at": "2026-05-27T23:08:11"
-    },
-    "Appliances > Warming Drawers": {
-      "title": "Warming Drawers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399955011",
-      "source": "Appliances",
-      "updated_at": "2026-05-27T23:08:11"
-    },
-    "Appliances > Washers & Dryers": {
-      "title": "Washers & Dryers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2383576011",
-      "source": "Appliances",
-      "updated_at": "2026-05-27T23:08:11"
-    },
-    "Appliances > Wine Cellars": {
-      "title": "Wine Cellars",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741521",
-      "source": "Appliances",
-      "updated_at": "2026-05-27T23:08:11"
-    },
-    "Appliances > Dishwashers > Built-In Dishwashers": {
-      "title": "Built-In Dishwashers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741281",
-      "source": "Appliances > Dishwashers",
-      "updated_at": "2026-05-27T23:09:01"
-    },
-    "Appliances > Dishwashers > Countertop Dishwashers": {
-      "title": "Countertop Dishwashers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/19201451011",
-      "source": "Appliances > Dishwashers",
-      "updated_at": "2026-05-27T23:09:01"
-    },
-    "Appliances > Dishwashers > Portable Dishwashers": {
-      "title": "Portable Dishwashers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/19201449011",
-      "source": "Appliances > Dishwashers",
-      "updated_at": "2026-05-27T23:09:01"
-    },
-    "Appliances > Small Appliances > Cooktops": {
-      "title": "Cooktops",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741261",
-      "source": "Appliances > Small Appliances",
-      "updated_at": "2026-05-26T19:50:07"
-    },
-    "Appliances > Small Appliances > Freezers": {
-      "title": "Freezers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741331",
-      "source": "Appliances > Small Appliances",
-      "updated_at": "2026-05-27T22:46:30"
-    },
-    "Appliances > Small Appliances > Ice Makers": {
-      "title": "Ice Makers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399939011",
-      "source": "Appliances > Small Appliances",
-      "updated_at": "2026-05-27T22:46:30"
-    },
-    "Appliances > Small Appliances > Range Hoods": {
-      "title": "Range Hoods",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741441",
-      "source": "Appliances > Small Appliances",
-      "updated_at": "2026-05-27T22:46:30"
-    },
-    "Appliances > Small Appliances > Ranges": {
-      "title": "Ranges",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741411",
-      "source": "Appliances > Small Appliances",
-      "updated_at": "2026-05-27T22:46:30"
-    },
-    "Appliances > Small Appliances > Refrigerators": {
-      "title": "Refrigerators",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741361",
-      "source": "Appliances > Small Appliances",
-      "updated_at": "2026-05-27T22:46:30"
-    },
-    "Appliances > Small Appliances > Wall Ovens": {
-      "title": "Wall Ovens",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741481",
-      "source": "Appliances > Small Appliances",
-      "updated_at": "2026-05-27T22:46:30"
-    },
-    "Appliances > Small Appliances > Warming Drawers": {
-      "title": "Warming Drawers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399955011",
-      "source": "Appliances > Small Appliances",
-      "updated_at": "2026-05-27T22:46:30"
-    },
-    "Appliances > Small Appliances > Washers & Dryers": {
-      "title": "Washers & Dryers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2383576011",
-      "source": "Appliances > Small Appliances",
-      "updated_at": "2026-05-27T22:46:30"
-    },
-    "Appliances > Small Appliances > Wine Cellars": {
-      "title": "Wine Cellars",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741521",
-      "source": "Appliances > Small Appliances",
-      "updated_at": "2026-05-27T22:46:30"
-    },
-    "Appliances > Appliance Warranties > Cooktops": {
-      "title": "Cooktops",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741261",
-      "source": "Appliances > Appliance Warranties",
-      "updated_at": "2026-05-27T23:08:15"
-    },
-    "Appliances > Appliance Warranties > Freezers": {
-      "title": "Freezers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741331",
-      "source": "Appliances > Appliance Warranties",
-      "updated_at": "2026-05-27T23:08:15"
-    },
-    "Appliances > Appliance Warranties > Ice Makers": {
-      "title": "Ice Makers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399939011",
-      "source": "Appliances > Appliance Warranties",
-      "updated_at": "2026-05-27T23:08:15"
-    },
-    "Appliances > Appliance Warranties > Range Hoods": {
-      "title": "Range Hoods",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741441",
-      "source": "Appliances > Appliance Warranties",
-      "updated_at": "2026-05-27T23:08:15"
-    },
-    "Appliances > Appliance Warranties > Ranges": {
-      "title": "Ranges",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741411",
-      "source": "Appliances > Appliance Warranties",
-      "updated_at": "2026-05-27T23:08:15"
-    },
-    "Appliances > Appliance Warranties > Refrigerators": {
-      "title": "Refrigerators",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741361",
-      "source": "Appliances > Appliance Warranties",
-      "updated_at": "2026-05-27T23:08:15"
-    },
-    "Appliances > Appliance Warranties > Wall Ovens": {
-      "title": "Wall Ovens",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741481",
-      "source": "Appliances > Appliance Warranties",
-      "updated_at": "2026-05-27T23:08:15"
-    },
-    "Appliances > Appliance Warranties > Warming Drawers": {
-      "title": "Warming Drawers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399955011",
-      "source": "Appliances > Appliance Warranties",
-      "updated_at": "2026-05-27T23:08:15"
-    },
-    "Appliances > Appliance Warranties > Washers & Dryers": {
-      "title": "Washers & Dryers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2383576011",
-      "source": "Appliances > Appliance Warranties",
-      "updated_at": "2026-05-27T23:08:15"
-    },
-    "Appliances > Appliance Warranties > Wine Cellars": {
-      "title": "Wine Cellars",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741521",
-      "source": "Appliances > Appliance Warranties",
-      "updated_at": "2026-05-27T23:08:15"
-    },
-    "Appliances > Dishwashers > Built-In Dishwashers > Countertop Dishwashers": {
-      "title": "Countertop Dishwashers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/19201451011",
-      "source": "Appliances > Dishwashers > Built-In Dishwashers",
-      "updated_at": "2026-05-27T23:09:05"
-    },
-    "Appliances > Dishwashers > Built-In Dishwashers > Portable Dishwashers": {
-      "title": "Portable Dishwashers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/19201449011",
-      "source": "Appliances > Dishwashers > Built-In Dishwashers",
-      "updated_at": "2026-05-27T23:09:05"
-    },
-    "Appliances > Dishwashers > Countertop Dishwashers > Built-In Dishwashers": {
-      "title": "Built-In Dishwashers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741281",
-      "source": "Appliances > Dishwashers > Countertop Dishwashers",
-      "updated_at": "2026-05-27T22:46:21"
-    },
-    "Appliances > Dishwashers > Countertop Dishwashers > Portable Dishwashers": {
-      "title": "Portable Dishwashers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/19201449011",
-      "source": "Appliances > Dishwashers > Countertop Dishwashers",
-      "updated_at": "2026-05-27T22:46:21"
-    },
-    "Appliances > Dishwashers > Portable Dishwashers > Built-In Dishwashers": {
-      "title": "Built-In Dishwashers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741281",
-      "source": "Appliances > Dishwashers > Portable Dishwashers",
-      "updated_at": "2026-05-27T22:46:25"
-    },
-    "Appliances > Dishwashers > Portable Dishwashers > Countertop Dishwashers": {
-      "title": "Countertop Dishwashers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/19201451011",
-      "source": "Appliances > Dishwashers > Portable Dishwashers",
-      "updated_at": "2026-05-27T22:46:25"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality": {
-      "title": "Heating, Cooling & Air Quality",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/3206324011",
-      "source": "Appliances > Small Appliances > Humidifiers",
-      "updated_at": "2026-05-27T23:09:17"
-    },
-    "Appliances > Small Appliances > Humidifiers > Air Conditioners": {
-      "title": "Air Conditioners",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/14554126011",
-      "source": "Appliances > Small Appliances > Humidifiers",
-      "updated_at": "2026-05-27T23:09:17"
-    },
-    "Appliances > Small Appliances > Humidifiers > Air Purifiers": {
-      "title": "Air Purifiers",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/267554011",
-      "source": "Appliances > Small Appliances > Humidifiers",
-      "updated_at": "2026-05-27T23:09:17"
-    },
-    "Appliances > Small Appliances > Humidifiers > Deodorizers": {
-      "title": "Deodorizers",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/213399347011",
-      "source": "Appliances > Small Appliances > Humidifiers",
-      "updated_at": "2026-05-27T23:09:17"
-    },
-    "Appliances > Small Appliances > Humidifiers > Evaporative Coolers": {
-      "title": "Evaporative Coolers",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/14554129011",
-      "source": "Appliances > Small Appliances > Humidifiers",
-      "updated_at": "2026-05-27T23:09:17"
-    },
-    "Appliances > Small Appliances > Humidifiers > Household Fans": {
-      "title": "Household Fans",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/3737601",
-      "source": "Appliances > Small Appliances > Humidifiers",
-      "updated_at": "2026-05-27T23:09:17"
-    },
-    "Appliances > Small Appliances > Humidifiers > Parts & Accessories": {
-      "title": "Parts & Accessories",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/19149190011",
-      "source": "Appliances > Small Appliances > Humidifiers",
-      "updated_at": "2026-05-27T23:09:17"
-    },
-    "Appliances > Small Appliances > Humidifiers > Space Heaters": {
-      "title": "Space Heaters",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/510182",
-      "source": "Appliances > Small Appliances > Humidifiers",
-      "updated_at": "2026-05-27T23:09:17"
-    },
-    "Appliances > Small Appliances > Humidifiers > Stoves & Fireplaces": {
-      "title": "Stoves & Fireplaces",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/1063284",
-      "source": "Appliances > Small Appliances > Humidifiers",
-      "updated_at": "2026-05-27T23:09:17"
-    },
-    "Appliances > Small Appliances > Electric Kettles > Kitchen & Dining": {
-      "title": "Kitchen & Dining",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/284507",
-      "source": "Appliances > Small Appliances > Electric Kettles",
-      "updated_at": "2026-05-27T22:46:38"
-    },
-    "Appliances > Small Appliances > Electric Kettles > Coffee, Tea & Espresso": {
-      "title": "Coffee, Tea & Espresso",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/915194",
-      "source": "Appliances > Small Appliances > Electric Kettles",
-      "updated_at": "2026-05-27T22:46:38"
-    },
-    "Appliances > Small Appliances > Electric Kettles > Kettles & Tea Machines": {
-      "title": "Kettles & Tea Machines",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/19309415011",
-      "source": "Appliances > Small Appliances > Electric Kettles",
-      "updated_at": "2026-05-27T22:46:38"
-    },
-    "Appliances > Small Appliances > Electric Kettles > Combination Water Boilers & Warmers": {
-      "title": "Combination Water Boilers & Warmers",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/17403398011",
-      "source": "Appliances > Small Appliances > Electric Kettles",
-      "updated_at": "2026-05-27T22:46:38"
-    },
-    "Appliances > Small Appliances > Electric Kettles > Iced Tea Machines": {
-      "title": "Iced Tea Machines",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/3117950011",
-      "source": "Appliances > Small Appliances > Electric Kettles",
-      "updated_at": "2026-05-27T22:46:38"
-    },
-    "Appliances > Small Appliances > Vacuums > Carpet & Upholstery Cleaners & Accessories": {
-      "title": "Carpet & Upholstery Cleaners & Accessories",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/11333721011",
-      "source": "Appliances > Small Appliances > Vacuums",
-      "updated_at": "2026-05-27T22:46:42"
-    },
-    "Appliances > Small Appliances > Vacuums > Floor Buffers & Parts": {
-      "title": "Floor Buffers & Parts",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/510118",
-      "source": "Appliances > Small Appliances > Vacuums",
-      "updated_at": "2026-05-27T22:46:42"
-    },
-    "Appliances > Small Appliances > Vacuums > Steam Cleaners, Steam Mops & Accessories": {
-      "title": "Steam Cleaners, Steam Mops & Accessories",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/11333725011",
-      "source": "Appliances > Small Appliances > Vacuums",
-      "updated_at": "2026-05-27T22:46:42"
-    },
-    "Appliances > Small Appliances > Vacuums > Sweepers & Accessories": {
-      "title": "Sweepers & Accessories",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/510094",
-      "source": "Appliances > Small Appliances > Vacuums",
-      "updated_at": "2026-05-27T22:46:42"
-    },
-    "Appliances > Small Appliances > Vacuums > Vacuum Parts & Accessories": {
-      "title": "Vacuum Parts & Accessories",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/510128",
-      "source": "Appliances > Small Appliances > Vacuums",
-      "updated_at": "2026-05-27T22:46:42"
-    },
-    "Appliances > Small Appliances > Freezers > Chest Freezers": {
-      "title": "Chest Freezers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741341",
-      "source": "Appliances > Small Appliances > Freezers",
-      "updated_at": "2026-05-27T22:46:46"
-    },
-    "Appliances > Small Appliances > Freezers > Upright Freezers": {
-      "title": "Upright Freezers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741351",
-      "source": "Appliances > Small Appliances > Freezers",
-      "updated_at": "2026-05-27T22:46:46"
-    },
-    "Appliances > Small Appliances > Ice Makers > Cooktops": {
-      "title": "Cooktops",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741261",
-      "source": "Appliances > Small Appliances > Ice Makers",
-      "updated_at": "2026-05-27T22:46:50"
-    },
-    "Appliances > Small Appliances > Ice Makers > Freezers": {
-      "title": "Freezers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741331",
-      "source": "Appliances > Small Appliances > Ice Makers",
-      "updated_at": "2026-05-27T22:46:50"
-    },
-    "Appliances > Small Appliances > Ice Makers > Range Hoods": {
-      "title": "Range Hoods",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741441",
-      "source": "Appliances > Small Appliances > Ice Makers",
-      "updated_at": "2026-05-27T22:46:50"
-    },
-    "Appliances > Small Appliances > Ice Makers > Ranges": {
-      "title": "Ranges",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741411",
-      "source": "Appliances > Small Appliances > Ice Makers",
-      "updated_at": "2026-05-27T22:46:50"
-    },
-    "Appliances > Small Appliances > Ice Makers > Refrigerators": {
-      "title": "Refrigerators",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741361",
-      "source": "Appliances > Small Appliances > Ice Makers",
-      "updated_at": "2026-05-27T22:46:50"
-    },
-    "Appliances > Small Appliances > Ice Makers > Wall Ovens": {
-      "title": "Wall Ovens",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741481",
-      "source": "Appliances > Small Appliances > Ice Makers",
-      "updated_at": "2026-05-27T22:46:50"
-    },
-    "Appliances > Small Appliances > Ice Makers > Warming Drawers": {
-      "title": "Warming Drawers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399955011",
-      "source": "Appliances > Small Appliances > Ice Makers",
-      "updated_at": "2026-05-27T22:46:50"
-    },
-    "Appliances > Small Appliances > Ice Makers > Washers & Dryers": {
-      "title": "Washers & Dryers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2383576011",
-      "source": "Appliances > Small Appliances > Ice Makers",
-      "updated_at": "2026-05-27T22:46:50"
-    },
-    "Appliances > Small Appliances > Ice Makers > Wine Cellars": {
-      "title": "Wine Cellars",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741521",
-      "source": "Appliances > Small Appliances > Ice Makers",
-      "updated_at": "2026-05-27T22:46:50"
-    },
-    "Appliances > Small Appliances > Range Hoods > Cooktops": {
-      "title": "Cooktops",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741261",
-      "source": "Appliances > Small Appliances > Range Hoods",
-      "updated_at": "2026-05-27T22:46:54"
-    },
-    "Appliances > Small Appliances > Range Hoods > Freezers": {
-      "title": "Freezers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741331",
-      "source": "Appliances > Small Appliances > Range Hoods",
-      "updated_at": "2026-05-27T22:46:54"
-    },
-    "Appliances > Small Appliances > Range Hoods > Ice Makers": {
-      "title": "Ice Makers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399939011",
-      "source": "Appliances > Small Appliances > Range Hoods",
-      "updated_at": "2026-05-27T22:46:54"
-    },
-    "Appliances > Small Appliances > Range Hoods > Ranges": {
-      "title": "Ranges",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741411",
-      "source": "Appliances > Small Appliances > Range Hoods",
-      "updated_at": "2026-05-27T22:46:54"
-    },
-    "Appliances > Small Appliances > Range Hoods > Refrigerators": {
-      "title": "Refrigerators",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741361",
-      "source": "Appliances > Small Appliances > Range Hoods",
-      "updated_at": "2026-05-27T22:46:54"
-    },
-    "Appliances > Small Appliances > Range Hoods > Wall Ovens": {
-      "title": "Wall Ovens",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741481",
-      "source": "Appliances > Small Appliances > Range Hoods",
-      "updated_at": "2026-05-27T22:46:54"
-    },
-    "Appliances > Small Appliances > Range Hoods > Warming Drawers": {
-      "title": "Warming Drawers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399955011",
-      "source": "Appliances > Small Appliances > Range Hoods",
-      "updated_at": "2026-05-27T22:46:54"
-    },
-    "Appliances > Small Appliances > Range Hoods > Washers & Dryers": {
-      "title": "Washers & Dryers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2383576011",
-      "source": "Appliances > Small Appliances > Range Hoods",
-      "updated_at": "2026-05-27T22:46:54"
-    },
-    "Appliances > Small Appliances > Range Hoods > Wine Cellars": {
-      "title": "Wine Cellars",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741521",
-      "source": "Appliances > Small Appliances > Range Hoods",
-      "updated_at": "2026-05-27T22:46:54"
-    },
-    "Appliances > Small Appliances > Ranges > Drop-In Ranges": {
-      "title": "Drop-In Ranges",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741421",
-      "source": "Appliances > Small Appliances > Ranges",
-      "updated_at": "2026-05-27T22:46:59"
-    },
-    "Appliances > Small Appliances > Ranges > Freestanding Ranges": {
-      "title": "Freestanding Ranges",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741431",
-      "source": "Appliances > Small Appliances > Ranges",
-      "updated_at": "2026-05-27T22:46:59"
-    },
-    "Appliances > Small Appliances > Ranges > Slide-In Ranges": {
-      "title": "Slide-In Ranges",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399946011",
-      "source": "Appliances > Small Appliances > Ranges",
-      "updated_at": "2026-05-27T22:46:59"
-    },
-    "Appliances > Small Appliances > Refrigerators > Cooktops": {
-      "title": "Cooktops",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741261",
-      "source": "Appliances > Small Appliances > Refrigerators",
-      "updated_at": "2026-05-27T22:47:03"
-    },
-    "Appliances > Small Appliances > Refrigerators > Freezers": {
-      "title": "Freezers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741331",
-      "source": "Appliances > Small Appliances > Refrigerators",
-      "updated_at": "2026-05-27T22:47:03"
-    },
-    "Appliances > Small Appliances > Refrigerators > Ice Makers": {
-      "title": "Ice Makers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399939011",
-      "source": "Appliances > Small Appliances > Refrigerators",
-      "updated_at": "2026-05-27T22:47:03"
-    },
-    "Appliances > Small Appliances > Refrigerators > Range Hoods": {
-      "title": "Range Hoods",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741441",
-      "source": "Appliances > Small Appliances > Refrigerators",
-      "updated_at": "2026-05-27T22:47:03"
-    },
-    "Appliances > Small Appliances > Refrigerators > Ranges": {
-      "title": "Ranges",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741411",
-      "source": "Appliances > Small Appliances > Refrigerators",
-      "updated_at": "2026-05-27T22:47:03"
-    },
-    "Appliances > Small Appliances > Refrigerators > Wall Ovens": {
-      "title": "Wall Ovens",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741481",
-      "source": "Appliances > Small Appliances > Refrigerators",
-      "updated_at": "2026-05-27T22:47:03"
-    },
-    "Appliances > Small Appliances > Refrigerators > Warming Drawers": {
-      "title": "Warming Drawers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399955011",
-      "source": "Appliances > Small Appliances > Refrigerators",
-      "updated_at": "2026-05-27T22:47:03"
-    },
-    "Appliances > Small Appliances > Refrigerators > Washers & Dryers": {
-      "title": "Washers & Dryers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2383576011",
-      "source": "Appliances > Small Appliances > Refrigerators",
-      "updated_at": "2026-05-27T22:47:03"
-    },
-    "Appliances > Small Appliances > Refrigerators > Wine Cellars": {
-      "title": "Wine Cellars",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741521",
-      "source": "Appliances > Small Appliances > Refrigerators",
-      "updated_at": "2026-05-27T22:47:03"
-    },
-    "Appliances > Small Appliances > Wall Ovens > Combination Microwave & Wall Ovens": {
-      "title": "Combination Microwave & Wall Ovens",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741491",
-      "source": "Appliances > Small Appliances > Wall Ovens",
-      "updated_at": "2026-05-27T22:47:07"
-    },
-    "Appliances > Small Appliances > Wall Ovens > Double Wall Ovens": {
-      "title": "Double Wall Ovens",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741501",
-      "source": "Appliances > Small Appliances > Wall Ovens",
-      "updated_at": "2026-05-27T22:47:07"
-    },
-    "Appliances > Small Appliances > Wall Ovens > Single Wall Ovens": {
-      "title": "Single Wall Ovens",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741511",
-      "source": "Appliances > Small Appliances > Wall Ovens",
-      "updated_at": "2026-05-27T22:47:07"
-    },
-    "Appliances > Small Appliances > Warming Drawers > Cooktops": {
-      "title": "Cooktops",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741261",
-      "source": "Appliances > Small Appliances > Warming Drawers",
-      "updated_at": "2026-05-27T22:47:11"
-    },
-    "Appliances > Small Appliances > Warming Drawers > Freezers": {
-      "title": "Freezers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741331",
-      "source": "Appliances > Small Appliances > Warming Drawers",
-      "updated_at": "2026-05-27T22:47:11"
-    },
-    "Appliances > Small Appliances > Warming Drawers > Ice Makers": {
-      "title": "Ice Makers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399939011",
-      "source": "Appliances > Small Appliances > Warming Drawers",
-      "updated_at": "2026-05-27T22:47:11"
-    },
-    "Appliances > Small Appliances > Warming Drawers > Range Hoods": {
-      "title": "Range Hoods",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741441",
-      "source": "Appliances > Small Appliances > Warming Drawers",
-      "updated_at": "2026-05-27T22:47:11"
-    },
-    "Appliances > Small Appliances > Warming Drawers > Ranges": {
-      "title": "Ranges",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741411",
-      "source": "Appliances > Small Appliances > Warming Drawers",
-      "updated_at": "2026-05-27T22:47:11"
-    },
-    "Appliances > Small Appliances > Warming Drawers > Refrigerators": {
-      "title": "Refrigerators",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741361",
-      "source": "Appliances > Small Appliances > Warming Drawers",
-      "updated_at": "2026-05-27T22:47:11"
-    },
-    "Appliances > Small Appliances > Warming Drawers > Wall Ovens": {
-      "title": "Wall Ovens",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741481",
-      "source": "Appliances > Small Appliances > Warming Drawers",
-      "updated_at": "2026-05-27T22:47:11"
-    },
-    "Appliances > Small Appliances > Warming Drawers > Washers & Dryers": {
-      "title": "Washers & Dryers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2383576011",
-      "source": "Appliances > Small Appliances > Warming Drawers",
-      "updated_at": "2026-05-27T22:47:11"
-    },
-    "Appliances > Small Appliances > Warming Drawers > Wine Cellars": {
-      "title": "Wine Cellars",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741521",
-      "source": "Appliances > Small Appliances > Warming Drawers",
-      "updated_at": "2026-05-27T22:47:11"
-    },
-    "Appliances > Small Appliances > Washers & Dryers > All-in-One Combination Washers & Dryers": {
-      "title": "All-in-One Combination Washers & Dryers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/13755271",
-      "source": "Appliances > Small Appliances > Washers & Dryers",
-      "updated_at": "2026-05-27T22:47:15"
-    },
-    "Appliances > Small Appliances > Washers & Dryers > Dryers": {
-      "title": "Dryers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/13397481",
-      "source": "Appliances > Small Appliances > Washers & Dryers",
-      "updated_at": "2026-05-27T22:47:15"
-    },
-    "Appliances > Small Appliances > Washers & Dryers > Portable Dryers": {
-      "title": "Portable Dryers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/21490694011",
-      "source": "Appliances > Small Appliances > Washers & Dryers",
-      "updated_at": "2026-05-27T22:47:15"
-    },
-    "Appliances > Small Appliances > Washers & Dryers > Portable Washers": {
-      "title": "Portable Washers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/9709422011",
-      "source": "Appliances > Small Appliances > Washers & Dryers",
-      "updated_at": "2026-05-27T22:47:15"
-    },
-    "Appliances > Small Appliances > Washers & Dryers > Stacked Washer & Dryer Units": {
-      "title": "Stacked Washer & Dryer Units",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399957011",
-      "source": "Appliances > Small Appliances > Washers & Dryers",
-      "updated_at": "2026-05-27T22:47:15"
-    },
-    "Appliances > Small Appliances > Washers & Dryers > Washers": {
-      "title": "Washers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/13397491",
-      "source": "Appliances > Small Appliances > Washers & Dryers",
-      "updated_at": "2026-05-27T22:47:15"
-    },
-    "Appliances > Small Appliances > Wine Cellars > Built-In Wine Cellars": {
-      "title": "Built-In Wine Cellars",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741551",
-      "source": "Appliances > Small Appliances > Wine Cellars",
-      "updated_at": "2026-05-27T22:47:19"
-    },
-    "Appliances > Small Appliances > Wine Cellars > Freestanding Wine Cellars": {
-      "title": "Freestanding Wine Cellars",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741541",
-      "source": "Appliances > Small Appliances > Wine Cellars",
-      "updated_at": "2026-05-27T22:47:19"
-    },
-    "Appliances > Small Appliances > Wine Cellars > Wine Cellar Cooling Systems": {
-      "title": "Wine Cellar Cooling Systems",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741581",
-      "source": "Appliances > Small Appliances > Wine Cellars",
-      "updated_at": "2026-05-27T22:47:19"
-    },
-    "Appliances > Appliance Warranties > Cooktops > Freezers": {
-      "title": "Freezers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741331",
-      "source": "Appliances > Appliance Warranties > Cooktops",
-      "updated_at": "2026-05-27T23:08:19"
-    },
-    "Appliances > Appliance Warranties > Cooktops > Ice Makers": {
-      "title": "Ice Makers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399939011",
-      "source": "Appliances > Appliance Warranties > Cooktops",
-      "updated_at": "2026-05-27T23:08:19"
-    },
-    "Appliances > Appliance Warranties > Cooktops > Range Hoods": {
-      "title": "Range Hoods",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741441",
-      "source": "Appliances > Appliance Warranties > Cooktops",
-      "updated_at": "2026-05-27T23:08:19"
-    },
-    "Appliances > Appliance Warranties > Cooktops > Ranges": {
-      "title": "Ranges",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741411",
-      "source": "Appliances > Appliance Warranties > Cooktops",
-      "updated_at": "2026-05-27T23:08:19"
-    },
-    "Appliances > Appliance Warranties > Cooktops > Refrigerators": {
-      "title": "Refrigerators",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741361",
-      "source": "Appliances > Appliance Warranties > Cooktops",
-      "updated_at": "2026-05-27T23:08:19"
-    },
-    "Appliances > Appliance Warranties > Cooktops > Wall Ovens": {
-      "title": "Wall Ovens",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741481",
-      "source": "Appliances > Appliance Warranties > Cooktops",
-      "updated_at": "2026-05-27T23:08:19"
-    },
-    "Appliances > Appliance Warranties > Cooktops > Warming Drawers": {
-      "title": "Warming Drawers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399955011",
-      "source": "Appliances > Appliance Warranties > Cooktops",
-      "updated_at": "2026-05-27T23:08:19"
-    },
-    "Appliances > Appliance Warranties > Cooktops > Washers & Dryers": {
-      "title": "Washers & Dryers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2383576011",
-      "source": "Appliances > Appliance Warranties > Cooktops",
-      "updated_at": "2026-05-27T23:08:19"
-    },
-    "Appliances > Appliance Warranties > Cooktops > Wine Cellars": {
-      "title": "Wine Cellars",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741521",
-      "source": "Appliances > Appliance Warranties > Cooktops",
-      "updated_at": "2026-05-27T23:08:19"
-    },
-    "Appliances > Appliance Warranties > Freezers > Chest Freezers": {
-      "title": "Chest Freezers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741341",
-      "source": "Appliances > Appliance Warranties > Freezers",
-      "updated_at": "2026-05-27T23:08:24"
-    },
-    "Appliances > Appliance Warranties > Freezers > Upright Freezers": {
-      "title": "Upright Freezers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741351",
-      "source": "Appliances > Appliance Warranties > Freezers",
-      "updated_at": "2026-05-27T23:08:24"
-    },
-    "Appliances > Appliance Warranties > Ice Makers > Cooktops": {
-      "title": "Cooktops",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741261",
-      "source": "Appliances > Appliance Warranties > Ice Makers",
-      "updated_at": "2026-05-27T23:08:28"
-    },
-    "Appliances > Appliance Warranties > Ice Makers > Freezers": {
-      "title": "Freezers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741331",
-      "source": "Appliances > Appliance Warranties > Ice Makers",
-      "updated_at": "2026-05-27T23:08:28"
-    },
-    "Appliances > Appliance Warranties > Ice Makers > Range Hoods": {
-      "title": "Range Hoods",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741441",
-      "source": "Appliances > Appliance Warranties > Ice Makers",
-      "updated_at": "2026-05-27T23:08:28"
-    },
-    "Appliances > Appliance Warranties > Ice Makers > Ranges": {
-      "title": "Ranges",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741411",
-      "source": "Appliances > Appliance Warranties > Ice Makers",
-      "updated_at": "2026-05-27T23:08:28"
-    },
-    "Appliances > Appliance Warranties > Ice Makers > Refrigerators": {
-      "title": "Refrigerators",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741361",
-      "source": "Appliances > Appliance Warranties > Ice Makers",
-      "updated_at": "2026-05-27T23:08:28"
-    },
-    "Appliances > Appliance Warranties > Ice Makers > Wall Ovens": {
-      "title": "Wall Ovens",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741481",
-      "source": "Appliances > Appliance Warranties > Ice Makers",
-      "updated_at": "2026-05-27T23:08:28"
-    },
-    "Appliances > Appliance Warranties > Ice Makers > Warming Drawers": {
-      "title": "Warming Drawers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399955011",
-      "source": "Appliances > Appliance Warranties > Ice Makers",
-      "updated_at": "2026-05-27T23:08:28"
-    },
-    "Appliances > Appliance Warranties > Ice Makers > Washers & Dryers": {
-      "title": "Washers & Dryers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2383576011",
-      "source": "Appliances > Appliance Warranties > Ice Makers",
-      "updated_at": "2026-05-27T23:08:28"
-    },
-    "Appliances > Appliance Warranties > Ice Makers > Wine Cellars": {
-      "title": "Wine Cellars",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741521",
-      "source": "Appliances > Appliance Warranties > Ice Makers",
-      "updated_at": "2026-05-27T23:08:28"
-    },
-    "Appliances > Appliance Warranties > Range Hoods > Cooktops": {
-      "title": "Cooktops",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741261",
-      "source": "Appliances > Appliance Warranties > Range Hoods",
-      "updated_at": "2026-05-27T23:08:32"
-    },
-    "Appliances > Appliance Warranties > Range Hoods > Freezers": {
-      "title": "Freezers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741331",
-      "source": "Appliances > Appliance Warranties > Range Hoods",
-      "updated_at": "2026-05-27T23:08:32"
-    },
-    "Appliances > Appliance Warranties > Range Hoods > Ice Makers": {
-      "title": "Ice Makers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399939011",
-      "source": "Appliances > Appliance Warranties > Range Hoods",
-      "updated_at": "2026-05-27T23:08:32"
-    },
-    "Appliances > Appliance Warranties > Range Hoods > Ranges": {
-      "title": "Ranges",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741411",
-      "source": "Appliances > Appliance Warranties > Range Hoods",
-      "updated_at": "2026-05-27T23:08:32"
-    },
-    "Appliances > Appliance Warranties > Range Hoods > Refrigerators": {
-      "title": "Refrigerators",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741361",
-      "source": "Appliances > Appliance Warranties > Range Hoods",
-      "updated_at": "2026-05-27T23:08:32"
-    },
-    "Appliances > Appliance Warranties > Range Hoods > Wall Ovens": {
-      "title": "Wall Ovens",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741481",
-      "source": "Appliances > Appliance Warranties > Range Hoods",
-      "updated_at": "2026-05-27T23:08:32"
-    },
-    "Appliances > Appliance Warranties > Range Hoods > Warming Drawers": {
-      "title": "Warming Drawers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399955011",
-      "source": "Appliances > Appliance Warranties > Range Hoods",
-      "updated_at": "2026-05-27T23:08:32"
-    },
-    "Appliances > Appliance Warranties > Range Hoods > Washers & Dryers": {
-      "title": "Washers & Dryers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2383576011",
-      "source": "Appliances > Appliance Warranties > Range Hoods",
-      "updated_at": "2026-05-27T23:08:32"
-    },
-    "Appliances > Appliance Warranties > Range Hoods > Wine Cellars": {
-      "title": "Wine Cellars",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741521",
-      "source": "Appliances > Appliance Warranties > Range Hoods",
-      "updated_at": "2026-05-27T23:08:32"
-    },
-    "Appliances > Appliance Warranties > Ranges > Drop-In Ranges": {
-      "title": "Drop-In Ranges",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741421",
-      "source": "Appliances > Appliance Warranties > Ranges",
-      "updated_at": "2026-05-27T23:08:36"
-    },
-    "Appliances > Appliance Warranties > Ranges > Freestanding Ranges": {
-      "title": "Freestanding Ranges",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741431",
-      "source": "Appliances > Appliance Warranties > Ranges",
-      "updated_at": "2026-05-27T23:08:36"
-    },
-    "Appliances > Appliance Warranties > Ranges > Slide-In Ranges": {
-      "title": "Slide-In Ranges",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399946011",
-      "source": "Appliances > Appliance Warranties > Ranges",
-      "updated_at": "2026-05-27T23:08:36"
-    },
-    "Appliances > Appliance Warranties > Refrigerators > Cooktops": {
-      "title": "Cooktops",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741261",
-      "source": "Appliances > Appliance Warranties > Refrigerators",
-      "updated_at": "2026-05-27T23:08:40"
-    },
-    "Appliances > Appliance Warranties > Refrigerators > Freezers": {
-      "title": "Freezers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741331",
-      "source": "Appliances > Appliance Warranties > Refrigerators",
-      "updated_at": "2026-05-27T23:08:40"
-    },
-    "Appliances > Appliance Warranties > Refrigerators > Ice Makers": {
-      "title": "Ice Makers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399939011",
-      "source": "Appliances > Appliance Warranties > Refrigerators",
-      "updated_at": "2026-05-27T23:08:40"
-    },
-    "Appliances > Appliance Warranties > Refrigerators > Range Hoods": {
-      "title": "Range Hoods",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741441",
-      "source": "Appliances > Appliance Warranties > Refrigerators",
-      "updated_at": "2026-05-27T23:08:40"
-    },
-    "Appliances > Appliance Warranties > Refrigerators > Ranges": {
-      "title": "Ranges",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741411",
-      "source": "Appliances > Appliance Warranties > Refrigerators",
-      "updated_at": "2026-05-27T23:08:40"
-    },
-    "Appliances > Appliance Warranties > Refrigerators > Wall Ovens": {
-      "title": "Wall Ovens",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741481",
-      "source": "Appliances > Appliance Warranties > Refrigerators",
-      "updated_at": "2026-05-27T23:08:40"
-    },
-    "Appliances > Appliance Warranties > Refrigerators > Warming Drawers": {
-      "title": "Warming Drawers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399955011",
-      "source": "Appliances > Appliance Warranties > Refrigerators",
-      "updated_at": "2026-05-27T23:08:40"
-    },
-    "Appliances > Appliance Warranties > Refrigerators > Washers & Dryers": {
-      "title": "Washers & Dryers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2383576011",
-      "source": "Appliances > Appliance Warranties > Refrigerators",
-      "updated_at": "2026-05-27T23:08:40"
-    },
-    "Appliances > Appliance Warranties > Refrigerators > Wine Cellars": {
-      "title": "Wine Cellars",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741521",
-      "source": "Appliances > Appliance Warranties > Refrigerators",
-      "updated_at": "2026-05-27T23:08:40"
-    },
-    "Appliances > Appliance Warranties > Wall Ovens > Combination Microwave & Wall Ovens": {
-      "title": "Combination Microwave & Wall Ovens",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741491",
-      "source": "Appliances > Appliance Warranties > Wall Ovens",
-      "updated_at": "2026-05-27T23:08:44"
-    },
-    "Appliances > Appliance Warranties > Wall Ovens > Double Wall Ovens": {
-      "title": "Double Wall Ovens",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741501",
-      "source": "Appliances > Appliance Warranties > Wall Ovens",
-      "updated_at": "2026-05-27T23:08:44"
-    },
-    "Appliances > Appliance Warranties > Wall Ovens > Single Wall Ovens": {
-      "title": "Single Wall Ovens",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741511",
-      "source": "Appliances > Appliance Warranties > Wall Ovens",
-      "updated_at": "2026-05-27T23:08:44"
-    },
-    "Appliances > Appliance Warranties > Warming Drawers > Cooktops": {
-      "title": "Cooktops",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741261",
-      "source": "Appliances > Appliance Warranties > Warming Drawers",
-      "updated_at": "2026-05-27T23:08:48"
-    },
-    "Appliances > Appliance Warranties > Warming Drawers > Freezers": {
-      "title": "Freezers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741331",
-      "source": "Appliances > Appliance Warranties > Warming Drawers",
-      "updated_at": "2026-05-27T23:08:48"
-    },
-    "Appliances > Appliance Warranties > Warming Drawers > Ice Makers": {
-      "title": "Ice Makers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399939011",
-      "source": "Appliances > Appliance Warranties > Warming Drawers",
-      "updated_at": "2026-05-27T23:08:48"
-    },
-    "Appliances > Appliance Warranties > Warming Drawers > Range Hoods": {
-      "title": "Range Hoods",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741441",
-      "source": "Appliances > Appliance Warranties > Warming Drawers",
-      "updated_at": "2026-05-27T23:08:48"
-    },
-    "Appliances > Appliance Warranties > Warming Drawers > Ranges": {
-      "title": "Ranges",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741411",
-      "source": "Appliances > Appliance Warranties > Warming Drawers",
-      "updated_at": "2026-05-27T23:08:48"
-    },
-    "Appliances > Appliance Warranties > Warming Drawers > Refrigerators": {
-      "title": "Refrigerators",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741361",
-      "source": "Appliances > Appliance Warranties > Warming Drawers",
-      "updated_at": "2026-05-27T23:08:48"
-    },
-    "Appliances > Appliance Warranties > Warming Drawers > Wall Ovens": {
-      "title": "Wall Ovens",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741481",
-      "source": "Appliances > Appliance Warranties > Warming Drawers",
-      "updated_at": "2026-05-27T23:08:48"
-    },
-    "Appliances > Appliance Warranties > Warming Drawers > Washers & Dryers": {
-      "title": "Washers & Dryers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2383576011",
-      "source": "Appliances > Appliance Warranties > Warming Drawers",
-      "updated_at": "2026-05-27T23:08:48"
-    },
-    "Appliances > Appliance Warranties > Warming Drawers > Wine Cellars": {
-      "title": "Wine Cellars",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741521",
-      "source": "Appliances > Appliance Warranties > Warming Drawers",
-      "updated_at": "2026-05-27T23:08:48"
-    },
-    "Appliances > Appliance Warranties > Washers & Dryers > All-in-One Combination Washers & Dryers": {
-      "title": "All-in-One Combination Washers & Dryers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/13755271",
-      "source": "Appliances > Appliance Warranties > Washers & Dryers",
-      "updated_at": "2026-05-27T23:08:52"
-    },
-    "Appliances > Appliance Warranties > Washers & Dryers > Dryers": {
-      "title": "Dryers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/13397481",
-      "source": "Appliances > Appliance Warranties > Washers & Dryers",
-      "updated_at": "2026-05-27T23:08:52"
-    },
-    "Appliances > Appliance Warranties > Washers & Dryers > Portable Dryers": {
-      "title": "Portable Dryers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/21490694011",
-      "source": "Appliances > Appliance Warranties > Washers & Dryers",
-      "updated_at": "2026-05-27T23:08:52"
-    },
-    "Appliances > Appliance Warranties > Washers & Dryers > Portable Washers": {
-      "title": "Portable Washers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/9709422011",
-      "source": "Appliances > Appliance Warranties > Washers & Dryers",
-      "updated_at": "2026-05-27T23:08:52"
-    },
-    "Appliances > Appliance Warranties > Washers & Dryers > Stacked Washer & Dryer Units": {
-      "title": "Stacked Washer & Dryer Units",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399957011",
-      "source": "Appliances > Appliance Warranties > Washers & Dryers",
-      "updated_at": "2026-05-27T23:08:52"
-    },
-    "Appliances > Appliance Warranties > Washers & Dryers > Washers": {
-      "title": "Washers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/13397491",
-      "source": "Appliances > Appliance Warranties > Washers & Dryers",
-      "updated_at": "2026-05-27T23:08:52"
-    },
-    "Appliances > Appliance Warranties > Wine Cellars > Built-In Wine Cellars": {
-      "title": "Built-In Wine Cellars",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741551",
-      "source": "Appliances > Appliance Warranties > Wine Cellars",
-      "updated_at": "2026-05-27T23:08:57"
-    },
-    "Appliances > Appliance Warranties > Wine Cellars > Freestanding Wine Cellars": {
-      "title": "Freestanding Wine Cellars",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741541",
-      "source": "Appliances > Appliance Warranties > Wine Cellars",
-      "updated_at": "2026-05-27T23:08:57"
-    },
-    "Appliances > Appliance Warranties > Wine Cellars > Wine Cellar Cooling Systems": {
-      "title": "Wine Cellar Cooling Systems",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741581",
-      "source": "Appliances > Appliance Warranties > Wine Cellars",
-      "updated_at": "2026-05-27T23:08:57"
-    },
-    "Appliances > Dishwashers > Built-In Dishwashers > Countertop Dishwashers > Portable Dishwashers": {
-      "title": "Portable Dishwashers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/19201449011",
-      "source": "Appliances > Dishwashers > Built-In Dishwashers > Countertop Dishwashers",
-      "updated_at": "2026-05-27T23:09:09"
-    },
-    "Appliances > Dishwashers > Built-In Dishwashers > Portable Dishwashers > Countertop Dishwashers": {
-      "title": "Countertop Dishwashers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/19201451011",
-      "source": "Appliances > Dishwashers > Built-In Dishwashers > Portable Dishwashers",
-      "updated_at": "2026-05-27T23:09:13"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners": {
-      "title": "Air Conditioners",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/14554126011",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality",
-      "is_leaf": true,
-      "node": "14554126011",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:11:36"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Purifiers": {
-      "title": "Air Purifiers",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/267554011",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality",
-      "is_leaf": true,
-      "node": "267554011",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:11:36"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Dehumidifiers": {
-      "title": "Dehumidifiers",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/267557011",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality",
-      "is_leaf": true,
-      "node": "267557011",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:11:36"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Deodorizers": {
-      "title": "Deodorizers",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/213399347011",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality",
-      "is_leaf": true,
-      "node": "213399347011",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:11:36"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Evaporative Coolers": {
-      "title": "Evaporative Coolers",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/14554129011",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality",
-      "is_leaf": true,
-      "node": "14554129011",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:11:36"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Household Fans": {
-      "title": "Household Fans",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/3737601",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality",
-      "is_leaf": true,
-      "node": "3737601",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:11:36"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Parts & Accessories": {
-      "title": "Parts & Accessories",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/19149190011",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality",
-      "is_leaf": true,
-      "node": "19149190011",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:11:36"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Space Heaters": {
-      "title": "Space Heaters",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/510182",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality",
-      "is_leaf": true,
-      "node": "510182",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:11:36"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Stoves & Fireplaces": {
-      "title": "Stoves & Fireplaces",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/1063284",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality",
-      "is_leaf": true,
-      "node": "1063284",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:11:36"
-    },
     "Bath Linen Sets": {
       "title": "Bath Linen Sets",
       "url": "https://www.amazon.com/gp/new-releases/home-garden/3731671/ref=zg_bsnr_nav_home-garden_2_1063236",
@@ -1571,393 +428,6 @@
       "node": "2975338011",
       "depth": 6,
       "updated_at": "2026-05-29T22:31:25"
-    },
-    "Appliances > Small Appliances > Humidifiers > Cooktops": {
-      "title": "Cooktops",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741261",
-      "source": "Appliances > Small Appliances > Humidifiers",
-      "is_leaf": true,
-      "node": "3741261",
-      "depth": 4,
-      "updated_at": "2026-05-29T23:11:32"
-    },
-    "Appliances > Small Appliances > Humidifiers > Freezers": {
-      "title": "Freezers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741331",
-      "source": "Appliances > Small Appliances > Humidifiers",
-      "is_leaf": true,
-      "node": "3741331",
-      "depth": 4,
-      "updated_at": "2026-05-29T23:11:32"
-    },
-    "Appliances > Small Appliances > Humidifiers > Ice Makers": {
-      "title": "Ice Makers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399939011",
-      "source": "Appliances > Small Appliances > Humidifiers",
-      "is_leaf": true,
-      "node": "2399939011",
-      "depth": 4,
-      "updated_at": "2026-05-29T23:11:32"
-    },
-    "Appliances > Small Appliances > Humidifiers > Range Hoods": {
-      "title": "Range Hoods",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741441",
-      "source": "Appliances > Small Appliances > Humidifiers",
-      "is_leaf": true,
-      "node": "3741441",
-      "depth": 4,
-      "updated_at": "2026-05-29T23:11:32"
-    },
-    "Appliances > Small Appliances > Humidifiers > Ranges": {
-      "title": "Ranges",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741411",
-      "source": "Appliances > Small Appliances > Humidifiers",
-      "is_leaf": true,
-      "node": "3741411",
-      "depth": 4,
-      "updated_at": "2026-05-29T23:11:32"
-    },
-    "Appliances > Small Appliances > Humidifiers > Wall Ovens": {
-      "title": "Wall Ovens",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741481",
-      "source": "Appliances > Small Appliances > Humidifiers",
-      "is_leaf": true,
-      "node": "3741481",
-      "depth": 4,
-      "updated_at": "2026-05-29T23:11:32"
-    },
-    "Appliances > Small Appliances > Humidifiers > Warming Drawers": {
-      "title": "Warming Drawers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399955011",
-      "source": "Appliances > Small Appliances > Humidifiers",
-      "is_leaf": true,
-      "node": "2399955011",
-      "depth": 4,
-      "updated_at": "2026-05-29T23:11:32"
-    },
-    "Appliances > Small Appliances > Humidifiers > Washers & Dryers": {
-      "title": "Washers & Dryers",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/2383576011",
-      "source": "Appliances > Small Appliances > Humidifiers",
-      "is_leaf": true,
-      "node": "2383576011",
-      "depth": 4,
-      "updated_at": "2026-05-29T23:11:32"
-    },
-    "Appliances > Small Appliances > Humidifiers > Wine Cellars": {
-      "title": "Wine Cellars",
-      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741521",
-      "source": "Appliances > Small Appliances > Humidifiers",
-      "is_leaf": true,
-      "node": "3741521",
-      "depth": 4,
-      "updated_at": "2026-05-29T23:11:32"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable": {
-      "title": "Portable",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/1193678",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners",
-      "is_leaf": true,
-      "node": "1193678",
-      "depth": 6,
-      "updated_at": "2026-05-29T23:11:41"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable > Split-System": {
-      "title": "Split-System",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/14554130011",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners",
-      "is_leaf": true,
-      "node": "14554130011",
-      "depth": 6,
-      "updated_at": "2026-05-29T23:11:41"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable > Wall": {
-      "title": "Wall",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/3737711",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners",
-      "is_leaf": true,
-      "node": "3737711",
-      "depth": 6,
-      "updated_at": "2026-05-29T23:11:41"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable > Window": {
-      "title": "Window",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/3737721",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners",
-      "is_leaf": true,
-      "node": "3737721",
-      "depth": 6,
-      "updated_at": "2026-05-29T23:11:41"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Purifiers > Heating, Cooling & Air Quality > Air Ionizers": {
-      "title": "Air Ionizers",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/510196",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Purifiers",
-      "is_leaf": true,
-      "node": "510196",
-      "depth": 6,
-      "updated_at": "2026-05-29T23:12:02"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Purifiers > Heating, Cooling & Air Quality > Air Ionizers > Electrostatic Air Purifiers": {
-      "title": "Electrostatic Air Purifiers",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/3737421",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Purifiers",
-      "is_leaf": true,
-      "node": "3737421",
-      "depth": 6,
-      "updated_at": "2026-05-29T23:12:02"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Purifiers > Heating, Cooling & Air Quality > Air Ionizers > HEPA Air Purifiers": {
-      "title": "HEPA Air Purifiers",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/510192",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Purifiers",
-      "is_leaf": true,
-      "node": "510192",
-      "depth": 6,
-      "updated_at": "2026-05-29T23:12:02"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Purifiers > Heating, Cooling & Air Quality > Air Ionizers > Travel-Size Air Purifiers": {
-      "title": "Travel-Size Air Purifiers",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/3737451",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Purifiers",
-      "is_leaf": true,
-      "node": "3737451",
-      "depth": 6,
-      "updated_at": "2026-05-29T23:12:02"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Purifiers > Heating, Cooling & Air Quality > Air Ionizers > ULPA Air Purifiers": {
-      "title": "ULPA Air Purifiers",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/3737431",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Purifiers",
-      "is_leaf": true,
-      "node": "3737431",
-      "depth": 6,
-      "updated_at": "2026-05-29T23:12:02"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Dehumidifiers > Heating, Cooling & Air Quality > Air Conditioners": {
-      "title": "Air Conditioners",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/14554126011",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Dehumidifiers",
-      "is_leaf": true,
-      "node": "14554126011",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:07:01"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Dehumidifiers > Heating, Cooling & Air Quality > Air Purifiers": {
-      "title": "Air Purifiers",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/267554011",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Dehumidifiers",
-      "is_leaf": true,
-      "node": "267554011",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:07:01"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Dehumidifiers > Heating, Cooling & Air Quality > Deodorizers": {
-      "title": "Deodorizers",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/213399347011",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Dehumidifiers",
-      "is_leaf": true,
-      "node": "213399347011",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:07:01"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Dehumidifiers > Heating, Cooling & Air Quality > Evaporative Coolers": {
-      "title": "Evaporative Coolers",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/14554129011",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Dehumidifiers",
-      "is_leaf": true,
-      "node": "14554129011",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:07:01"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Dehumidifiers > Heating, Cooling & Air Quality > Household Fans": {
-      "title": "Household Fans",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/3737601",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Dehumidifiers",
-      "is_leaf": true,
-      "node": "3737601",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:07:01"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Dehumidifiers > Heating, Cooling & Air Quality > Parts & Accessories": {
-      "title": "Parts & Accessories",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/19149190011",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Dehumidifiers",
-      "is_leaf": true,
-      "node": "19149190011",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:07:01"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Dehumidifiers > Heating, Cooling & Air Quality > Space Heaters": {
-      "title": "Space Heaters",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/510182",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Dehumidifiers",
-      "is_leaf": true,
-      "node": "510182",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:07:01"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Dehumidifiers > Heating, Cooling & Air Quality > Stoves & Fireplaces": {
-      "title": "Stoves & Fireplaces",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/1063284",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Dehumidifiers",
-      "is_leaf": true,
-      "node": "1063284",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:07:01"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Deodorizers > Heating, Cooling & Air Quality > Air Conditioners": {
-      "title": "Air Conditioners",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/14554126011",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Deodorizers",
-      "is_leaf": true,
-      "node": "14554126011",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:07:05"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Deodorizers > Heating, Cooling & Air Quality > Air Purifiers": {
-      "title": "Air Purifiers",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/267554011",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Deodorizers",
-      "is_leaf": true,
-      "node": "267554011",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:07:05"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Deodorizers > Heating, Cooling & Air Quality > Dehumidifiers": {
-      "title": "Dehumidifiers",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/267557011",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Deodorizers",
-      "is_leaf": true,
-      "node": "267557011",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:07:05"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Deodorizers > Heating, Cooling & Air Quality > Evaporative Coolers": {
-      "title": "Evaporative Coolers",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/14554129011",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Deodorizers",
-      "is_leaf": true,
-      "node": "14554129011",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:07:05"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Deodorizers > Heating, Cooling & Air Quality > Household Fans": {
-      "title": "Household Fans",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/3737601",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Deodorizers",
-      "is_leaf": true,
-      "node": "3737601",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:07:05"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Deodorizers > Heating, Cooling & Air Quality > Parts & Accessories": {
-      "title": "Parts & Accessories",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/19149190011",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Deodorizers",
-      "is_leaf": true,
-      "node": "19149190011",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:07:05"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Deodorizers > Heating, Cooling & Air Quality > Space Heaters": {
-      "title": "Space Heaters",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/510182",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Deodorizers",
-      "is_leaf": true,
-      "node": "510182",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:07:05"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Deodorizers > Heating, Cooling & Air Quality > Stoves & Fireplaces": {
-      "title": "Stoves & Fireplaces",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/1063284",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Deodorizers",
-      "is_leaf": true,
-      "node": "1063284",
-      "depth": 5,
-      "updated_at": "2026-05-29T23:07:05"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable > Heating, Cooling & Air Quality > Air Conditioners > Split-System": {
-      "title": "Split-System",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/14554130011",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable",
-      "is_leaf": true,
-      "node": "14554130011",
-      "depth": 6,
-      "updated_at": "2026-05-29T23:11:45"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable > Heating, Cooling & Air Quality > Air Conditioners > Wall": {
-      "title": "Wall",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/3737711",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable",
-      "is_leaf": true,
-      "node": "3737711",
-      "depth": 6,
-      "updated_at": "2026-05-29T23:11:45"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable > Heating, Cooling & Air Quality > Air Conditioners > Window": {
-      "title": "Window",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/3737721",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable",
-      "is_leaf": true,
-      "node": "3737721",
-      "depth": 6,
-      "updated_at": "2026-05-29T23:11:45"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable > Split-System > Heating, Cooling & Air Quality > Air Conditioners > Wall": {
-      "title": "Wall",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/3737711",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable > Split-System",
-      "is_leaf": true,
-      "node": "3737711",
-      "depth": 6,
-      "updated_at": "2026-05-29T23:11:49"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable > Split-System > Heating, Cooling & Air Quality > Air Conditioners > Window": {
-      "title": "Window",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/3737721",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable > Split-System",
-      "is_leaf": true,
-      "node": "3737721",
-      "depth": 6,
-      "updated_at": "2026-05-29T23:11:49"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable > Wall > Heating, Cooling & Air Quality > Air Conditioners > Split-System": {
-      "title": "Split-System",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/14554130011",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable > Wall",
-      "is_leaf": true,
-      "node": "14554130011",
-      "depth": 6,
-      "updated_at": "2026-05-29T23:11:53"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable > Wall > Heating, Cooling & Air Quality > Air Conditioners > Window": {
-      "title": "Window",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/3737721",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable > Wall",
-      "is_leaf": true,
-      "node": "3737721",
-      "depth": 6,
-      "updated_at": "2026-05-29T23:11:53"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable > Window > Heating, Cooling & Air Quality > Air Conditioners > Split-System": {
-      "title": "Split-System",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/14554130011",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable > Window",
-      "is_leaf": true,
-      "node": "14554130011",
-      "depth": 6,
-      "updated_at": "2026-05-29T23:11:58"
-    },
-    "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable > Window > Heating, Cooling & Air Quality > Air Conditioners > Wall": {
-      "title": "Wall",
-      "url": "https://www.amazon.com/gp/bestsellers/home-garden/3737711",
-      "source": "Appliances > Small Appliances > Humidifiers > Heating, Cooling & Air Quality > Air Conditioners > Heating, Cooling & Air Quality > Portable > Window",
-      "is_leaf": true,
-      "node": "3737711",
-      "depth": 6,
-      "updated_at": "2026-05-29T23:11:58"
     },
     "Home & Kitchen > Bath": {
       "title": "Bath",
@@ -26663,6 +25133,285 @@
       "node": "23764007011",
       "depth": 5,
       "updated_at": "2026-06-07T21:27:56"
+    },
+    "Appliances > Appliance Warranties": {
+      "title": "Appliance Warranties",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/2242350011",
+      "source": "Appliances",
+      "is_leaf": true,
+      "node": "2242350011",
+      "depth": 1,
+      "updated_at": "2026-06-11T21:40:48"
+    },
+    "Appliances > Cooktops": {
+      "title": "Cooktops",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741261",
+      "source": "Appliances",
+      "is_leaf": true,
+      "node": "3741261",
+      "depth": 1,
+      "updated_at": "2026-06-11T21:40:48"
+    },
+    "Appliances > Dishwashers": {
+      "title": "Dishwashers",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741271",
+      "source": "Appliances",
+      "is_leaf": false,
+      "node": "3741271",
+      "depth": 1,
+      "updated_at": "2026-06-11T21:40:48"
+    },
+    "Appliances > Freezers": {
+      "title": "Freezers",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741331",
+      "source": "Appliances",
+      "is_leaf": false,
+      "node": "3741331",
+      "depth": 1,
+      "updated_at": "2026-06-11T21:40:48"
+    },
+    "Appliances > Ice Makers": {
+      "title": "Ice Makers",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399939011",
+      "source": "Appliances",
+      "is_leaf": true,
+      "node": "2399939011",
+      "depth": 1,
+      "updated_at": "2026-06-11T21:40:48"
+    },
+    "Appliances > Range Hoods": {
+      "title": "Range Hoods",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741441",
+      "source": "Appliances",
+      "is_leaf": true,
+      "node": "3741441",
+      "depth": 1,
+      "updated_at": "2026-06-11T21:40:48"
+    },
+    "Appliances > Ranges": {
+      "title": "Ranges",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741411",
+      "source": "Appliances",
+      "is_leaf": false,
+      "node": "3741411",
+      "depth": 1,
+      "updated_at": "2026-06-11T21:40:48"
+    },
+    "Appliances > Wall Ovens": {
+      "title": "Wall Ovens",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741481",
+      "source": "Appliances",
+      "is_leaf": false,
+      "node": "3741481",
+      "depth": 1,
+      "updated_at": "2026-06-11T21:40:48"
+    },
+    "Appliances > Warming Drawers": {
+      "title": "Warming Drawers",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399955011",
+      "source": "Appliances",
+      "is_leaf": true,
+      "node": "2399955011",
+      "depth": 1,
+      "updated_at": "2026-06-11T21:40:48"
+    },
+    "Appliances > Washers & Dryers": {
+      "title": "Washers & Dryers",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/2383576011",
+      "source": "Appliances",
+      "is_leaf": false,
+      "node": "2383576011",
+      "depth": 1,
+      "updated_at": "2026-06-11T21:40:48"
+    },
+    "Appliances > Wine Cellars": {
+      "title": "Wine Cellars",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741521",
+      "source": "Appliances",
+      "is_leaf": false,
+      "node": "3741521",
+      "depth": 1,
+      "updated_at": "2026-06-11T21:40:48"
+    },
+    "Appliances > Dishwashers > Built-In Dishwashers": {
+      "title": "Built-In Dishwashers",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741281",
+      "source": "Appliances > Dishwashers",
+      "is_leaf": true,
+      "node": "3741281",
+      "depth": 2,
+      "updated_at": "2026-06-11T21:41:00"
+    },
+    "Appliances > Dishwashers > Countertop Dishwashers": {
+      "title": "Countertop Dishwashers",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/19201451011",
+      "source": "Appliances > Dishwashers",
+      "is_leaf": true,
+      "node": "19201451011",
+      "depth": 2,
+      "updated_at": "2026-06-11T21:41:00"
+    },
+    "Appliances > Dishwashers > Portable Dishwashers": {
+      "title": "Portable Dishwashers",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/19201449011",
+      "source": "Appliances > Dishwashers",
+      "is_leaf": true,
+      "node": "19201449011",
+      "depth": 2,
+      "updated_at": "2026-06-11T21:41:00"
+    },
+    "Appliances > Freezers > Chest Freezers": {
+      "title": "Chest Freezers",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741341",
+      "source": "Appliances > Freezers",
+      "is_leaf": true,
+      "node": "3741341",
+      "depth": 2,
+      "updated_at": "2026-06-11T21:41:05"
+    },
+    "Appliances > Freezers > Upright Freezers": {
+      "title": "Upright Freezers",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741351",
+      "source": "Appliances > Freezers",
+      "is_leaf": true,
+      "node": "3741351",
+      "depth": 2,
+      "updated_at": "2026-06-11T21:41:05"
+    },
+    "Appliances > Ranges > Drop-In Ranges": {
+      "title": "Drop-In Ranges",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741421",
+      "source": "Appliances > Ranges",
+      "is_leaf": true,
+      "node": "3741421",
+      "depth": 2,
+      "updated_at": "2026-06-11T21:41:19"
+    },
+    "Appliances > Ranges > Freestanding Ranges": {
+      "title": "Freestanding Ranges",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741431",
+      "source": "Appliances > Ranges",
+      "is_leaf": true,
+      "node": "3741431",
+      "depth": 2,
+      "updated_at": "2026-06-11T21:41:19"
+    },
+    "Appliances > Ranges > Slide-In Ranges": {
+      "title": "Slide-In Ranges",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399946011",
+      "source": "Appliances > Ranges",
+      "is_leaf": true,
+      "node": "2399946011",
+      "depth": 2,
+      "updated_at": "2026-06-11T21:41:19"
+    },
+    "Appliances > Wall Ovens > Combination Microwave & Wall Ovens": {
+      "title": "Combination Microwave & Wall Ovens",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741491",
+      "source": "Appliances > Wall Ovens",
+      "is_leaf": true,
+      "node": "3741491",
+      "depth": 2,
+      "updated_at": "2026-06-11T21:41:23"
+    },
+    "Appliances > Wall Ovens > Double Wall Ovens": {
+      "title": "Double Wall Ovens",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741501",
+      "source": "Appliances > Wall Ovens",
+      "is_leaf": true,
+      "node": "3741501",
+      "depth": 2,
+      "updated_at": "2026-06-11T21:41:23"
+    },
+    "Appliances > Wall Ovens > Single Wall Ovens": {
+      "title": "Single Wall Ovens",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741511",
+      "source": "Appliances > Wall Ovens",
+      "is_leaf": true,
+      "node": "3741511",
+      "depth": 2,
+      "updated_at": "2026-06-11T21:41:23"
+    },
+    "Appliances > Washers & Dryers > All-in-One Combination Washers & Dryers": {
+      "title": "All-in-One Combination Washers & Dryers",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/13755271",
+      "source": "Appliances > Washers & Dryers",
+      "is_leaf": true,
+      "node": "13755271",
+      "depth": 2,
+      "updated_at": "2026-06-11T21:41:32"
+    },
+    "Appliances > Washers & Dryers > Dryers": {
+      "title": "Dryers",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/13397481",
+      "source": "Appliances > Washers & Dryers",
+      "is_leaf": true,
+      "node": "13397481",
+      "depth": 2,
+      "updated_at": "2026-06-11T21:41:32"
+    },
+    "Appliances > Washers & Dryers > Portable Dryers": {
+      "title": "Portable Dryers",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/21490694011",
+      "source": "Appliances > Washers & Dryers",
+      "is_leaf": true,
+      "node": "21490694011",
+      "depth": 2,
+      "updated_at": "2026-06-11T21:41:32"
+    },
+    "Appliances > Washers & Dryers > Portable Washers": {
+      "title": "Portable Washers",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/9709422011",
+      "source": "Appliances > Washers & Dryers",
+      "is_leaf": true,
+      "node": "9709422011",
+      "depth": 2,
+      "updated_at": "2026-06-11T21:41:32"
+    },
+    "Appliances > Washers & Dryers > Stacked Washer & Dryer Units": {
+      "title": "Stacked Washer & Dryer Units",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/2399957011",
+      "source": "Appliances > Washers & Dryers",
+      "is_leaf": true,
+      "node": "2399957011",
+      "depth": 2,
+      "updated_at": "2026-06-11T21:41:32"
+    },
+    "Appliances > Washers & Dryers > Washers": {
+      "title": "Washers",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/13397491",
+      "source": "Appliances > Washers & Dryers",
+      "is_leaf": true,
+      "node": "13397491",
+      "depth": 2,
+      "updated_at": "2026-06-11T21:41:32"
+    },
+    "Appliances > Wine Cellars > Built-In Wine Cellars": {
+      "title": "Built-In Wine Cellars",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741551",
+      "source": "Appliances > Wine Cellars",
+      "is_leaf": true,
+      "node": "3741551",
+      "depth": 2,
+      "updated_at": "2026-06-11T21:41:36"
+    },
+    "Appliances > Wine Cellars > Freestanding Wine Cellars": {
+      "title": "Freestanding Wine Cellars",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741541",
+      "source": "Appliances > Wine Cellars",
+      "is_leaf": true,
+      "node": "3741541",
+      "depth": 2,
+      "updated_at": "2026-06-11T21:41:36"
+    },
+    "Appliances > Wine Cellars > Wine Cellar Cooling Systems": {
+      "title": "Wine Cellar Cooling Systems",
+      "url": "https://www.amazon.com/gp/bestsellers/appliances/3741581",
+      "source": "Appliances > Wine Cellars",
+      "is_leaf": true,
+      "node": "3741581",
+      "depth": 2,
+      "updated_at": "2026-06-11T21:41:36"
     }
   }
 }
