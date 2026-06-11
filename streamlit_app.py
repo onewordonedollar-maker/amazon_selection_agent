@@ -414,13 +414,14 @@ def render_stop_collection_button() -> None:
             display: block;
             width: 100%;
             height: 42px;
-            border: 1px solid #ff4b4b;
+            border: 1px solid #d94b4b;
             border-radius: 8px;
             background: #fff;
-            color: #ff4b4b;
+            color: #c73e3e;
             font-size: 15px;
             font-weight: 600;
             cursor: pointer;
+            transition: background .15s ease, border-color .15s ease, color .15s ease;
         ">停止采集</button>
         <script>
         const btn = document.getElementById("stop-collection-btn");
@@ -1948,7 +1949,7 @@ def render_category_dialog():
             st.session_state.category_clear_requested = True
             st.rerun()
     st.markdown("<span class='category-footer-anchor'></span>", unsafe_allow_html=True)
-    spacer_left, cancel_col, spacer_mid, confirm_col = st.columns([0.56, 0.18, 0.02, 0.24])
+    spacer_left, cancel_col, spacer_mid, confirm_col = st.columns([0.72, 0.10, 0.02, 0.16])
     if cancel_col.button("取消", use_container_width=True):
         st.session_state.show_category_dialog = False
         st.rerun()
@@ -3580,6 +3581,402 @@ st.markdown(
         white-space: normal;
         line-height: 1.35;
     }
+
+    /* Visual refresh: presentation only. Core collection and filtering logic is unchanged. */
+    :root {
+        --app-bg: #f2f4f7;
+        --surface: #ffffff;
+        --surface-soft: #f8fafc;
+        --surface-raised: #fcfcfd;
+        --ink: #182230;
+        --ink-soft: #344054;
+        --muted: #667085;
+        --muted-light: #98a2b3;
+        --line: #e1e6ed;
+        --line-strong: #cfd6df;
+        --brand: #d94b4b;
+        --brand-deep: #b93636;
+        --brand-soft: #fff3f2;
+        --accent: #0f766e;
+        --accent-soft: #ecfdf8;
+        --warning: #c66a16;
+        --shadow-soft: 0 1px 2px rgba(16, 24, 40, .035), 0 8px 24px rgba(16, 24, 40, .025);
+    }
+    html,
+    body,
+    [data-testid="stAppViewContainer"] {
+        background: var(--app-bg) !important;
+        color: var(--ink);
+    }
+    [data-testid="stHeader"] {
+        background: transparent !important;
+        border-bottom: 0;
+        backdrop-filter: none;
+    }
+    .block-container {
+        padding: 0.7rem 1.4rem 2.5rem !important;
+    }
+    h1 {
+        border-left: 0;
+        color: var(--ink) !important;
+        font-size: clamp(28px, 2.45vw, 38px) !important;
+        font-weight: 760 !important;
+        line-height: 1.08 !important;
+        margin: 2px 0 5px !important;
+        position: relative;
+        padding-left: 13px;
+    }
+    h1::before {
+        background: var(--brand);
+        border-radius: 2px;
+        content: "";
+        height: 31px;
+        left: 0;
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 4px;
+    }
+    div[data-testid="stCaptionContainer"] {
+        color: var(--muted-light) !important;
+        font-size: 12.5px;
+    }
+    div[data-testid="stElementContainer"]:has(.page-header-anchor) + div[data-testid="stHorizontalBlock"] {
+        margin-bottom: 0.7rem !important;
+    }
+    div[data-testid="stElementContainer"]:has(.page-header-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stRadio"] {
+        background: rgba(255, 255, 255, .72);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 5px 10px;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        background: var(--surface) !important;
+        border: 1px solid var(--line) !important;
+        border-radius: 8px !important;
+        box-shadow: var(--shadow-soft) !important;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"] > div {
+        background: var(--surface) !important;
+        border-radius: inherit;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.setup-panel-anchor) {
+        padding: 15px 16px 14px !important;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.setup-panel-anchor) > div > div[data-testid="stVerticalBlock"] {
+        gap: 0.58rem !important;
+    }
+    div[data-testid="stElementContainer"]:has(.setup-controls-anchor) + div[data-testid="stHorizontalBlock"] {
+        gap: 18px !important;
+    }
+    div[data-testid="stElementContainer"]:has(.setup-controls-anchor) + div[data-testid="stHorizontalBlock"] label {
+        color: var(--ink-soft) !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        letter-spacing: 0 !important;
+    }
+    .section-heading {
+        align-items: center;
+        color: var(--ink);
+        display: flex;
+        font-size: 15px;
+        font-weight: 750;
+        gap: 9px;
+        margin: 2px 0 0;
+    }
+    .section-heading::before {
+        background: var(--brand);
+        border-radius: 2px;
+        content: "";
+        height: 15px;
+        width: 3px;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.setup-panel-anchor) hr {
+        border-color: var(--line) !important;
+        margin: 0.7rem 0 0.65rem !important;
+    }
+    div[data-testid="stTextInput"] div[data-baseweb="input"],
+    div[data-testid="stNumberInput"] div[data-baseweb="input"],
+    div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+    div[data-testid="stPopover"] button {
+        background: var(--surface-raised) !important;
+        border: 1px solid var(--line-strong) !important;
+        border-radius: 7px !important;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, .025) !important;
+    }
+    div[data-testid="stTextInput"] div[data-baseweb="input"]:hover,
+    div[data-testid="stNumberInput"] div[data-baseweb="input"]:hover,
+    div[data-testid="stSelectbox"] div[data-baseweb="select"] > div:hover,
+    div[data-testid="stPopover"] button:hover {
+        background: var(--surface) !important;
+        border-color: #aeb8c5 !important;
+    }
+    div[data-testid="stTextInput"] div[data-baseweb="input"]:focus-within,
+    div[data-testid="stNumberInput"] div[data-baseweb="input"]:focus-within,
+    div[data-testid="stSelectbox"] div[data-baseweb="select"] > div:focus-within {
+        background: var(--surface) !important;
+        border-color: var(--brand) !important;
+        box-shadow: 0 0 0 3px rgba(217, 75, 75, .1) !important;
+    }
+    div[data-testid="stTextInput"] input,
+    div[data-testid="stNumberInput"] input {
+        background: transparent !important;
+        color: var(--ink) !important;
+        font-weight: 500;
+    }
+    div[data-testid="stTextInput"] input::placeholder,
+    div[data-testid="stNumberInput"] input::placeholder {
+        color: #8994a5 !important;
+    }
+    div[data-testid="stButton"] button,
+    div[data-testid="stDownloadButton"] button {
+        border-color: var(--line-strong);
+        border-radius: 7px !important;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, .025);
+        color: var(--ink-soft);
+        font-weight: 650;
+        transition: background .15s ease, border-color .15s ease, box-shadow .15s ease, color .15s ease;
+    }
+    div[data-testid="stButton"] button:hover,
+    div[data-testid="stDownloadButton"] button:hover {
+        background: var(--surface-soft);
+        border-color: #aeb8c5;
+        color: var(--ink);
+        box-shadow: 0 2px 5px rgba(16, 24, 40, .06);
+    }
+    div[data-testid="stButton"] button[kind="primary"],
+    div[data-testid="stDownloadButton"] button[kind="primary"] {
+        background: var(--brand) !important;
+        border-color: var(--brand) !important;
+        box-shadow: 0 2px 5px rgba(185, 54, 54, .18) !important;
+        color: #ffffff !important;
+    }
+    div[data-testid="stButton"] button[kind="primary"]:hover,
+    div[data-testid="stDownloadButton"] button[kind="primary"]:hover {
+        background: var(--brand-deep) !important;
+        border-color: var(--brand-deep) !important;
+    }
+    div[data-testid="stButton"] button:disabled,
+    div[data-testid="stDownloadButton"] button:disabled {
+        background: #f4f6f8 !important;
+        border-color: #e4e8ee !important;
+        box-shadow: none !important;
+        color: #a6afbc !important;
+        opacity: 1 !important;
+    }
+    div[data-testid="stAlert"] {
+        background: #f6f8fb !important;
+        border: 1px solid #dfe6ef !important;
+        color: #36536f !important;
+    }
+    div[data-testid="stAlert"] svg {
+        color: #557a9d !important;
+        fill: #557a9d !important;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.setup-panel-anchor) div[data-testid="stAlert"] {
+        border-radius: 7px;
+        border: 1px solid #dbe4ef;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.setup-panel-anchor) div[data-testid="stAlert"][data-baseweb="notification"] {
+        background: #f5f8fc;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.setup-panel-anchor) div[data-testid="stAlert"] p {
+        color: #36536f;
+    }
+    .filter-label {
+        color: var(--ink-soft);
+        font-size: 13px;
+        font-weight: 720;
+        margin: 5px 0 7px;
+    }
+    .filter-label span {
+        border-color: #d78a42;
+        color: #bd681c;
+        height: 17px;
+        margin-left: 6px;
+        width: 17px;
+    }
+    .filter-range-sep {
+        color: #aeb7c4;
+        font-size: 15px;
+        font-weight: 600;
+    }
+    .selected-pill {
+        background: var(--brand-soft);
+        border: 1px solid #f5d4d1;
+        color: #a83b3b;
+        font-weight: 600;
+    }
+    div[data-testid="stElementContainer"]:has(.collection-action-toolbar) + div[data-testid="stHorizontalBlock"] {
+        background: var(--surface-soft);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        gap: 8px !important;
+        overflow-x: auto;
+        padding: 8px !important;
+    }
+    div[data-testid="stElementContainer"]:has(.collection-action-toolbar) + div[data-testid="stHorizontalBlock"] > div:nth-child(2) iframe {
+        border-radius: 7px;
+        height: 40px !important;
+        margin-top: 0 !important;
+    }
+    div[data-testid="stMetric"] {
+        background: var(--surface) !important;
+        border-color: var(--line) !important;
+        border-radius: 7px !important;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, .025) !important;
+    }
+    div[data-testid="stMetric"] label {
+        color: var(--muted) !important;
+        font-weight: 650;
+    }
+    div[data-testid="stMetric"] [data-testid="stMetricValue"] {
+        color: var(--ink);
+        font-size: 25px;
+        font-weight: 650;
+    }
+    div[data-testid="stTabs"] [role="tablist"] {
+        border-bottom-color: var(--line);
+        gap: 20px;
+    }
+    div[data-testid="stTabs"] button[role="tab"] {
+        color: var(--muted);
+        font-weight: 650;
+        padding-left: 0;
+        padding-right: 0;
+    }
+    div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+        color: var(--brand);
+    }
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-anchor) + div[data-testid="stLayoutWrapper"],
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-anchor) + div[data-testid="stHorizontalBlock"] {
+        background: rgba(242, 244, 247, .96) !important;
+        border-bottom: 1px solid var(--line);
+        box-shadow: 0 5px 14px rgba(16, 24, 40, .055);
+        padding: 7px 0 6px !important;
+    }
+    div[data-testid="stElementContainer"]:has(.seller-table-header-anchor) + div[data-testid="stLayoutWrapper"],
+    div[data-testid="stElementContainer"]:has(.seller-table-header-anchor) + div[data-testid="stHorizontalBlock"] {
+        background: #eef1f5 !important;
+        border-bottom: 1px solid #dce2ea;
+        box-shadow: 0 4px 12px rgba(16, 24, 40, .045);
+    }
+    .seller-header,
+    .seller-select-header {
+        background: #eef1f5;
+        border-color: #dfe4eb;
+        color: #596474;
+    }
+    .seller-header span {
+        color: var(--brand);
+    }
+    .seller-row {
+        border-color: var(--line);
+        border-radius: 6px;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, .025);
+    }
+    .seller-row:hover {
+        border-color: #c9d1dc;
+        box-shadow: 0 8px 20px rgba(16, 24, 40, .055);
+    }
+    .seller-title,
+    .product-title,
+    .cell strong,
+    .meta-line strong {
+        color: var(--ink);
+    }
+    .seller-detail {
+        border-top-color: #e9edf2;
+        color: var(--muted);
+    }
+    .orange,
+    .toolbar-meta strong,
+    .cache-foot strong {
+        color: var(--brand);
+    }
+    .orange-pill {
+        background: #bd671d;
+    }
+    .rank-pill {
+        background: var(--brand);
+    }
+    .green-pill {
+        background: var(--accent);
+    }
+    .cache-card {
+        border-color: var(--line);
+        border-radius: 8px;
+        box-shadow: var(--shadow-soft);
+    }
+    .cache-progress span {
+        background: var(--accent);
+    }
+    .cache-badge.ok {
+        background: var(--accent-soft);
+        color: var(--accent);
+    }
+    .category-count-badge {
+        background: #fff7ed;
+        border: 1px solid #f8dfbf;
+        color: var(--warning);
+        font-weight: 650;
+    }
+    .category-selected-title {
+        color: var(--ink);
+    }
+    .category-selected-panel {
+        background: var(--surface-soft);
+        border-color: var(--line);
+        border-radius: 8px;
+    }
+    div[data-testid="stDialog"] [role="dialog"] {
+        border: 1px solid rgba(255, 255, 255, .5);
+        border-radius: 8px !important;
+        box-shadow: 0 24px 70px rgba(16, 24, 40, .24);
+    }
+    div[data-testid="stDialog"] section {
+        background: var(--surface);
+    }
+    div[data-testid="stDialog"] div[data-baseweb="input"] {
+        background: var(--surface-soft) !important;
+        border-color: var(--line-strong) !important;
+    }
+    div[data-testid="stDialog"] div[data-baseweb="input"]:focus-within {
+        background: var(--surface) !important;
+        border-color: var(--brand) !important;
+        box-shadow: 0 0 0 3px rgba(217, 75, 75, .1) !important;
+    }
+    div[data-testid="stDialog"] div[data-testid="stElementContainer"]:has(.category-footer-anchor) + div[data-testid="stHorizontalBlock"] {
+        border-top: 1px solid var(--line);
+        justify-content: flex-end !important;
+        padding-top: 8px !important;
+    }
+    div[data-testid="stDialog"] div[data-testid="stElementContainer"]:has(.category-footer-anchor) + div[data-testid="stHorizontalBlock"] > div:nth-child(1),
+    div[data-testid="stDialog"] div[data-testid="stElementContainer"]:has(.category-footer-anchor) + div[data-testid="stHorizontalBlock"] > div:nth-child(3) {
+        display: none !important;
+    }
+    div[data-testid="stDialog"] div[data-testid="stElementContainer"]:has(.category-footer-anchor) + div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
+        flex: 0 0 116px !important;
+        min-width: 116px !important;
+    }
+    div[data-testid="stDialog"] div[data-testid="stElementContainer"]:has(.category-footer-anchor) + div[data-testid="stHorizontalBlock"] > div:nth-child(4) {
+        flex: 0 0 168px !important;
+        min-width: 168px !important;
+    }
+    div[data-testid="stDialog"] div[data-testid="stElementContainer"]:has(.category-footer-anchor) + div[data-testid="stHorizontalBlock"] button {
+        border-radius: 7px !important;
+    }
+    .copy-icon:hover,
+    .copy-icon.copied,
+    .mini-link:hover {
+        background: var(--brand-soft);
+        border-color: #edb8b4;
+        color: var(--brand) !important;
+    }
+    .copy-icon:active {
+        background: var(--brand);
+        border-color: var(--brand);
+    }
     @media (max-width: 760px) {
         .block-container {
             padding-left: 0.85rem;
@@ -3733,7 +4130,7 @@ with st.container(border=True):
     st.divider()
     history_options = raw_history_options()
     if history_options:
-        st.write("**历史原始采集池**")
+        st.markdown("<div class='section-heading'>历史原始采集池</div>", unsafe_allow_html=True)
         st.caption("本地只保留最近 5 次原始采集池；载入后会立即按当前筛选条件重新计算下方结果。")
         history_cols = st.columns([3, 1], vertical_alignment="bottom")
         history_labels = [label for label, _ in history_options]
@@ -3753,7 +4150,7 @@ with st.container(border=True):
         selected_history_label = ""
         load_history = False
 
-    st.write(f"**{T['filters']}**")
+    st.markdown(f"<div class='section-heading'>{escape(T['filters'])}</div>", unsafe_allow_html=True)
     filter_top = st.columns(3)
     with filter_top[0]:
         min_price_raw, max_price_raw = render_range_filter(
