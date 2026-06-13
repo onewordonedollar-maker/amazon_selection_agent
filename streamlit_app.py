@@ -47,6 +47,7 @@ RAW_PRODUCTS_CACHE = OUTPUT_DIR / "last_raw_products.json"
 RAW_PRODUCTS_HISTORY_DIR = OUTPUT_DIR / "raw_products"
 RAW_PRODUCTS_HISTORY_INDEX = RAW_PRODUCTS_HISTORY_DIR / "index.json"
 RAW_PRODUCTS_HISTORY_LIMIT = 5
+LAST_COLLECTION_REPORT = OUTPUT_DIR / "last_collection_report.json"
 STOP_COLLECTION_FLAG = OUTPUT_DIR / "stop_collection.flag"
 COLLECTION_RUNNING_FLAG = OUTPUT_DIR / "collection_running.flag"
 STOP_COLLECTION_PORT = 8765
@@ -285,6 +286,7 @@ class Product:
     sub_rank: int = 0
     sub_category: str = ""
     margin_rate: str = ""
+    plugin_data_loaded: bool = False
 
 
 class CollectionStopped(RuntimeError):
@@ -487,7 +489,22 @@ def ensure_state():
     if "collection_empty_seed_count" not in st.session_state:
         st.session_state.collection_empty_seed_count = 0
     if "collection_failed_seed_details" not in st.session_state:
-        st.session_state.collection_failed_seed_details = []
+        persisted_failures = []
+        if LAST_COLLECTION_REPORT.exists():
+            try:
+                previous_report = json.loads(LAST_COLLECTION_REPORT.read_text(encoding="utf-8"))
+                persisted_failures = [
+                    {
+                        "label": item.get("label", "未知入口"),
+                        "url": item.get("url", ""),
+                        "error": item.get("error") or item.get("quality_message") or "未知错误",
+                    }
+                    for item in previous_report.get("entries", [])
+                    if item.get("failed")
+                ]
+            except (json.JSONDecodeError, OSError):
+                persisted_failures = []
+        st.session_state.collection_failed_seed_details = persisted_failures
     if "collection_total_seed_count" not in st.session_state:
         st.session_state.collection_total_seed_count = 0
 
@@ -577,6 +594,8 @@ def product_from_dict(data: dict) -> Product:
         else:
             values[name] = None
     product = Product(**values)
+    if "plugin_data_loaded" not in data:
+        product.plugin_data_loaded = bool(product.monthly_bought)
     repair_product_price(product)
     product.selected = False
     return product
@@ -668,6 +687,33 @@ def save_raw_products(products: list[Product], label: str = "", source_url: str 
             except OSError:
                 pass
     write_raw_history_index(kept_records)
+
+
+def save_collection_report(
+    seed_summaries: list[dict],
+    total_raw_count: int,
+    status: str,
+    planned_seeds: list[tuple[str, str]] | None = None,
+) -> None:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "updated_at": datetime.now().isoformat(timespec="seconds"),
+        "status": status,
+        "planned_seed_count": len(planned_seeds or []),
+        "completed_seed_count": len(seed_summaries),
+        "failed_seed_count": sum(bool(item.get("failed")) for item in seed_summaries),
+        "empty_seed_count": sum(bool(item.get("empty")) for item in seed_summaries),
+        "total_raw_count": total_raw_count,
+        "planned_seeds": [
+            {"label": label, "url": url}
+            for label, url in (planned_seeds or [])
+        ],
+        "entries": seed_summaries,
+    }
+    LAST_COLLECTION_REPORT.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
 
 def load_raw_products() -> tuple[list[Product], str]:
@@ -1161,7 +1207,7 @@ def apply_product_filters(products: list[Product], filters: dict) -> list[Produc
 
 
 def product_plugin_data_complete(product: Product) -> bool:
-    return bool(product.monthly_bought or product.sales_amount or product.fba_fee)
+    return product.plugin_data_loaded
 
 
 def product_plugin_completeness(product: Product) -> int:
@@ -1202,6 +1248,7 @@ def merge_product_records(existing: Product, candidate: Product) -> Product:
             if replacement not in ("", 0, 0.0, None, "Unknown"):
                 values[name] = replacement
     merged = Product(**values)
+    merged.plugin_data_loaded = existing.plugin_data_loaded or candidate.plugin_data_loaded
     if product_plugin_data_complete(merged):
         merged.status = "OK"
         merged.error = ""
@@ -2093,7 +2140,7 @@ def seller_product_html(product: Product) -> str:
 
 
 def collect_sellersprite_products(list_type, filters, category_path: str = "") -> list[Product]:
-    scraped_products = load_cached_sellersprite_products(limit=200)
+    scraped_products = load_cached_sellersprite_products(SELLERSPRITE_DOM_CACHE, limit=200)
     image_cache = load_sellersprite_image_cache()
     products = []
     for scraped in scraped_products:
@@ -2151,6 +2198,7 @@ def collect_sellersprite_products(list_type, filters, category_path: str = "") -
             sub_rank=scraped.sub_rank,
             sub_category=scraped.sub_category,
             margin_rate=scraped.margin_rate,
+            plugin_data_loaded=plugin_complete,
         )
         products.append(product)
     return products
@@ -2163,6 +2211,7 @@ def collect_sellersprite_entry(
     progress=None,
     page_count: int = 2,
     progress_label: str = "",
+    category_path: str = "",
 ) -> tuple[list[Product], list]:
     products_by_asin: dict[str, Product] = {}
     duplicate_pages = 0
@@ -2177,7 +2226,7 @@ def collect_sellersprite_entry(
         nonlocal duplicate_pages
         raise_if_stop_requested()
         refresh_results.append(refresh_result)
-        if not refresh_result.ok and not refresh_result.product_count:
+        if not refresh_result.ok:
             cached_text = ""
             if SELLERSPRITE_DOM_CACHE.exists():
                 cached_text = SELLERSPRITE_DOM_CACHE.read_text(encoding="utf-8", errors="replace")
@@ -2187,7 +2236,11 @@ def collect_sellersprite_entry(
             else:
                 raise RuntimeError(refresh_result.message)
         page_name = "第一页" if page == 1 else "第二页" if page == 2 else f"第 {page} 页"
-        parsed_products = collect_sellersprite_products(list_type, filters, progress_label)
+        parsed_products = collect_sellersprite_products(
+            list_type,
+            filters,
+            category_path or progress_label,
+        )
         before_count = len(products_by_asin)
         for product in parsed_products:
             existing = products_by_asin.get(product.asin)
@@ -2268,8 +2321,10 @@ def collect_sellersprite_entry_with_quality_retry(
     progress=None,
     page_count: int = 2,
     progress_label: str = "",
+    category_path: str = "",
     retry_limit: int = SELLERSPRITE_CATEGORY_RETRY_LIMIT,
 ) -> tuple[list[Product], list, bool, str]:
+    stable_category_path = category_path or progress_label
     best_products, best_results = collect_sellersprite_entry(
         target_url,
         list_type,
@@ -2277,6 +2332,7 @@ def collect_sellersprite_entry_with_quality_retry(
         progress=progress,
         page_count=page_count,
         progress_label=progress_label,
+        category_path=stable_category_path,
     )
     best_ok, best_message = sellersprite_collection_quality(best_products, best_results)
     label = progress_label or target_url
@@ -2294,6 +2350,7 @@ def collect_sellersprite_entry_with_quality_retry(
             progress=progress,
             page_count=page_count,
             progress_label=f"{label} 重试{retry_index}",
+            category_path=stable_category_path,
         )
         retry_ok, retry_message = sellersprite_collection_quality(retry_products, retry_results)
         merged_by_asin = {product.asin: product for product in best_products if product.asin}
@@ -2323,6 +2380,7 @@ def collect_sellersprite_batch(
     list_type: str,
     filters: dict,
     progress_bar,
+    seed_label: str = "",
     progress_start: int = 0,
     progress_end: int = 100,
     progress_prefix: str = "",
@@ -2353,7 +2411,8 @@ def collect_sellersprite_batch(
         filters,
         progress=update_entry_progress,
         page_count=2,
-        progress_label="当前类目",
+        progress_label=seed_label or "当前类目",
+        category_path=seed_label,
     )
     if not quality_ok:
         set_batch_progress(99, f"{quality_message}。疑似漏采，已保留当前能解析到的产品。")
@@ -2428,6 +2487,7 @@ def collect_sellersprite_batch_from_seeds(
     st.session_state.collection_empty_seed_count = 0
     st.session_state.collection_failed_seed_details = []
     st.session_state.collection_total_raw_count = 0
+    save_collection_report([], 0, "running", seed_urls)
     update_collection_total_status(total_status_placeholder)
     for seed_index, (seed_label, seed_url) in enumerate(seed_urls, start=1):
         raise_if_stop_requested()
@@ -2443,6 +2503,7 @@ def collect_sellersprite_batch_from_seeds(
                 list_type,
                 filters,
                 progress_bar,
+                seed_label=seed_label,
                 progress_start=seed_start,
                 progress_end=seed_end,
                 progress_prefix="",
@@ -2453,6 +2514,7 @@ def collect_sellersprite_batch_from_seeds(
                 existing = raw_by_asin.get(product.asin)
                 raw_by_asin[product.asin] = merge_product_records(existing, product) if existing else product
             stage_raw_products(list(raw_by_asin.values()))
+            save_collection_report(seed_summaries, len(raw_by_asin), "stopped", seed_urls)
             raise
         except Exception as exc:
             partial_products = st.session_state.get("collection_staged_raw_products", [])
@@ -2474,13 +2536,16 @@ def collect_sellersprite_batch_from_seeds(
             })
             seed_summaries.append({
                 "label": seed_label,
+                "url": seed_url,
                 "added": added,
                 "raw": len(partial_products),
                 "quality_ok": False,
                 "quality_message": f"入口采集失败：{error_message}",
                 "pages": 0,
                 "failed": True,
+                "error": error_message,
             })
+            save_collection_report(seed_summaries, len(raw_by_asin), "running", seed_urls)
             progress_bar.progress(
                 seed_end,
                 text=(
@@ -2508,14 +2573,24 @@ def collect_sellersprite_batch_from_seeds(
             )
             seed_summaries.append({
                 "label": seed_label,
+                "url": seed_url,
                 "added": added,
                 "raw": len(seed_products),
                 "quality_ok": quality_ok,
                 "quality_message": quality_message,
                 "pages": page_read_count,
-                "failed": False,
+                "failed": not quality_ok and quality_message != EMPTY_NEW_RELEASES_MESSAGE,
                 "empty": quality_message == EMPTY_NEW_RELEASES_MESSAGE,
+                "error": "" if quality_ok else quality_message,
             })
+            if not quality_ok and quality_message != EMPTY_NEW_RELEASES_MESSAGE:
+                st.session_state.collection_failed_seed_count += 1
+                st.session_state.collection_failed_seed_details.append({
+                    "label": seed_label,
+                    "url": seed_url,
+                    "error": quality_message,
+                })
+            save_collection_report(seed_summaries, len(raw_by_asin), "running", seed_urls)
             if quality_message == EMPTY_NEW_RELEASES_MESSAGE:
                 st.session_state.collection_empty_seed_count += 1
             log(f"Seed {seed_index}/{len(seed_urls)} finished: {seed_label}. added raw {added}, total raw {len(raw_by_asin)}.")
@@ -2539,6 +2614,7 @@ def collect_sellersprite_batch_from_seeds(
         f"疑似漏采或失败 {len(weak_items)} 个；原始去重合计 {len(raw_by_asin)} 条。"
         f"{weak_suffix}"
     )
+    save_collection_report(seed_summaries, len(raw_by_asin), "completed", seed_urls)
     return list(raw_by_asin.values())
 
 
@@ -4372,6 +4448,7 @@ if run:
                     progress=update_run_refresh_progress,
                     page_count=2,
                     progress_label=target_label,
+                    category_path=target_label,
                 )
                 st.session_state.collection_completed_seed_count = 1
                 st.session_state.collection_total_raw_count = len(collected_products)
@@ -4392,6 +4469,30 @@ if run:
                 )
                 if not quality_ok:
                     st.session_state.last_cache_refresh_message += " 这次疑似漏采，建议保持采集 Chrome 前台可见后重试。"
+                    if quality_message != EMPTY_NEW_RELEASES_MESSAGE:
+                        st.session_state.collection_failed_seed_count = 1
+                        st.session_state.collection_failed_seed_details = [{
+                            "label": target_label,
+                            "url": target_url,
+                            "error": quality_message,
+                        }]
+                save_collection_report(
+                    [{
+                        "label": target_label,
+                        "url": target_url,
+                        "added": len(collected_products),
+                        "raw": len(collected_products),
+                        "quality_ok": quality_ok,
+                        "quality_message": quality_message,
+                        "pages": len(refresh_results),
+                        "failed": not quality_ok and quality_message != EMPTY_NEW_RELEASES_MESSAGE,
+                        "empty": quality_message == EMPTY_NEW_RELEASES_MESSAGE,
+                        "error": "" if quality_ok else quality_message,
+                    }],
+                    len(collected_products),
+                    "completed",
+                    [(target_label, target_url)],
+                )
                 log(f"SellerSprite plugin collection finished. Parsed {len(collected_products)} unique products from {len(refresh_results)} pages.")
         for product in collected_products:
             product.selected = False

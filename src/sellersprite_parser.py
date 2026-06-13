@@ -34,6 +34,7 @@ class SellerSpriteProduct:
     package_weight_lb: float
     package_dimensions: str
     launched_at: str
+    parent_monthly_sales_loaded: bool = False
 
 
 def load_cached_sellersprite_products(path: Path = DOM_CACHE_PATH, limit: int = 50) -> list[SellerSpriteProduct]:
@@ -85,7 +86,7 @@ def sellersprite_product_completeness(product: SellerSpriteProduct) -> int:
 
 
 def sellersprite_product_hydrated(product: SellerSpriteProduct) -> bool:
-    return bool(product.parent_monthly_sales or product.sales_amount or product.fba_fee)
+    return product.parent_monthly_sales_loaded
 
 
 def merge_sellersprite_products(
@@ -116,8 +117,9 @@ def parse_product_block(block: str, asin: str) -> SellerSpriteProduct:
     rating, reviews = extract_rating_reviews(lines)
     bsr_rank, bsr_category = extract_rank_category(block, 0)
     sub_rank, sub_category = extract_rank_category(block, 1)
-    child_label = find_first(r"近30天销量\(子体\):\s*([0-9,KkMm\+,.]+)", block)
-    parent_monthly_sales = parse_int(find_first(r"近30天销量\(父体\):\s*([0-9,]+)", block))
+    child_label = find_first(r"近30天销量\(子体\):\s*([^\n]+)", block)
+    parent_sales_label = find_first(r"近30天销量\(父体\):\s*([^\n]+)", block)
+    parent_monthly_sales = parse_compact_int(parent_sales_label)
     sales_amount = parse_money(find_first(r"销售额:\s*\$?([0-9,]+(?:\.[0-9]+)?)", block))
     labeled_price = parse_money(find_first(r"价格:\s*\$?([0-9,]+(?:\.[0-9]+)?)", block))
     card_price = extract_price(lines, asin_index)
@@ -147,6 +149,7 @@ def parse_product_block(block: str, asin: str) -> SellerSpriteProduct:
         package_weight_lb=parse_weight_lb(find_first(r"包装重量:\s*([^\n]+)", block)),
         package_dimensions=find_first(r"包装尺寸:\s*([^\n]+)", block),
         launched_at=find_first(r"上架时间:\s*([0-9]{4}-[0-9]{2}-[0-9]{2})", block),
+        parent_monthly_sales_loaded=bool(parent_sales_label),
     )
 
 
@@ -229,7 +232,8 @@ def parse_money(value: str) -> float:
 def parse_compact_int(value: str) -> int:
     if not value:
         return 0
-    value = value.replace(",", "").strip()
+    value = value.replace(",", "").replace(" ", "").strip()
+    value = re.sub(r"^[<>≤≥~]+", "", value)
     match = re.match(r"([0-9.]+)([KkMm]?)(\+?)", value)
     if not match:
         return 0

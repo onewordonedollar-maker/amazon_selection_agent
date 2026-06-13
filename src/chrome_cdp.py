@@ -94,14 +94,19 @@ def validate_rank_category_page(expected_url: str, page_state: dict | None) -> t
     unavailable_text = re.sub(r"\s+", " ", str(state.get("unavailableText") or "")).strip()
     expected_department, expected_node = rank_category_identity(expected_url)
     actual_department, actual_node = rank_category_identity(actual_url)
+    expected_kind_match = re.search(r"/gp/(bestsellers|new-releases)/", urlparse(expected_url or "").path)
+    actual_kind_match = re.search(r"/gp/(bestsellers|new-releases)/", urlparse(actual_url).path)
+    expected_kind = expected_kind_match.group(1) if expected_kind_match else ""
+    actual_kind = actual_kind_match.group(1) if actual_kind_match else ""
 
     if not expected_department or not expected_node:
         return False, f"{INVALID_RANK_CATEGORY_PREFIX}：请求链接不是具体榜单类目页。"
-    if actual_department != expected_department or actual_node != expected_node:
+    if actual_kind != expected_kind or actual_node != expected_node:
         return (
             False,
             f"{INVALID_RANK_CATEGORY_PREFIX}：页面跳离目标类目 "
-            f"({expected_department}/{expected_node} -> {actual_department or '-'}"
+            f"({expected_kind}/{expected_department}/{expected_node} -> "
+            f"{actual_kind or '-'}/{actual_department or '-'}"
             f"/{actual_node or '-'}）。",
         )
     if selected_text.lower().startswith("any department"):

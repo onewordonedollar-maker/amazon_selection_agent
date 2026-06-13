@@ -27,6 +27,33 @@ class RankPageValidationTests(unittest.TestCase):
         self.assertTrue(valid)
         self.assertEqual(message, "")
 
+    def test_same_node_with_amazon_department_alias_is_accepted(self):
+        valid, message = validate_rank_category_page(
+            EXPECTED,
+            {
+                "url": (
+                    "https://www.amazon.com/gp/new-releases/kitchen/"
+                    "17659096011/ref=zg_bsnr_pg_2_kitchen?pg=2"
+                ),
+                "selectedText": "Air Fryers",
+                "unavailableText": "",
+            },
+        )
+        self.assertTrue(valid)
+        self.assertEqual(message, "")
+
+    def test_same_node_on_different_ranking_type_is_rejected(self):
+        valid, message = validate_rank_category_page(
+            EXPECTED,
+            {
+                "url": "https://www.amazon.com/gp/bestsellers/home-garden/17659096011",
+                "selectedText": "Air Fryers",
+                "unavailableText": "",
+            },
+        )
+        self.assertFalse(valid)
+        self.assertIn("bestsellers", message)
+
     def test_any_department_fallback_is_rejected(self):
         valid, message = validate_rank_category_page(
             EXPECTED,

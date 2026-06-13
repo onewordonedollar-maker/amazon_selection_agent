@@ -55,6 +55,33 @@ class SellerSpriteParserTests(unittest.TestCase):
 
         self.assertEqual(2, count_hydrated_products(text))
 
+    def test_zero_or_unavailable_parent_sales_is_loaded_not_missing(self):
+        text = (
+            "\n#1\nZero sales product\nASIN:B000000001\n"
+            "\u8fd130\u5929\u9500\u91cf(\u7236\u4f53): 0\n"
+            "\n#2\nUnavailable sales product\nASIN:B000000002\n"
+            "\u8fd130\u5929\u9500\u91cf(\u7236\u4f53): N/A\n"
+        )
+
+        products = parse_sellersprite_text(text, limit=50)
+
+        self.assertEqual(2, len(products))
+        self.assertTrue(products[0].parent_monthly_sales_loaded)
+        self.assertTrue(products[1].parent_monthly_sales_loaded)
+        self.assertEqual(0, products[0].parent_monthly_sales)
+        self.assertEqual(0, products[1].parent_monthly_sales)
+
+    def test_less_than_five_parent_sales_is_parsed(self):
+        text = (
+            "\n#1\nLow sales product\nASIN:B000000003\n"
+            "\u8fd130\u5929\u9500\u91cf(\u7236\u4f53): < 5\n"
+        )
+
+        product = parse_sellersprite_text(text, limit=50)[0]
+
+        self.assertTrue(product.parent_monthly_sales_loaded)
+        self.assertEqual(5, product.parent_monthly_sales)
+
     def test_offer_price_does_not_fall_through_to_fba_fee(self):
         text = (
             "\n#1\nActual product title\n1 offer from $43.02\n"
