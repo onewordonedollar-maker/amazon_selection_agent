@@ -4326,7 +4326,11 @@ with st.container(border=True):
             f"{index}. {item.get('label', '未知入口')}：{item.get('error', '未知错误')}"
             for index, item in enumerate(failed_seed_details, start=1)
         ]
-        st.warning("本轮失败入口及原因：\n\n" + "\n\n".join(failure_lines))
+        with st.expander(
+            f"本轮失败入口及原因（{len(failed_seed_details)} 个）",
+            expanded=True,
+        ):
+            st.warning("\n\n".join(failure_lines))
 
     raw_count = len(st.session_state.raw_products)
     filtered_count = len(st.session_state.products)
