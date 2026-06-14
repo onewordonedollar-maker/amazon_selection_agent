@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+from collections import defaultdict
+import re
 from urllib.parse import urlsplit, urlunsplit
 
 
@@ -41,6 +43,16 @@ def normalized_category_url(url: str) -> str:
     return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), path, "", ""))
 
 
+def canonical_category_url(url: str) -> str:
+    normalized = normalized_category_url(url)
+    return re.sub(
+        r"/gp/new-releases/",
+        "/gp/bestsellers/",
+        normalized,
+        count=1,
+    )
+
+
 def category_url_matches_path(path: str, url: str) -> bool:
     slug = DEPARTMENT_SLUG_BY_ROOT.get(category_root(path))
     if not slug:
@@ -51,6 +63,77 @@ def category_url_matches_path(path: str, url: str) -> bool:
 
 def is_legacy_home_path(path: str) -> bool:
     return any(path == prefix or path.startswith(f"{prefix} > ") for prefix in LEGACY_HOME_PREFIXES)
+
+
+def mapping_audit_report(categories: dict) -> dict:
+    allowed_roots = tuple(DEPARTMENT_SLUG_BY_ROOT)
+    unscoped_aliases = []
+    missing_node = []
+    department_mismatches = []
+    urls_by_canonical: defaultdict[str, list[str]] = defaultdict(list)
+
+    for path, payload in (categories or {}).items():
+        payload = payload or {}
+        if not any(path == root or path.startswith(f"{root} > ") for root in allowed_roots):
+            unscoped_aliases.append(path)
+        if not str(payload.get("node") or "").strip():
+            missing_node.append(path)
+        url = str(payload.get("url") or "")
+        if not category_url_matches_path(path, url):
+            department_mismatches.append(path)
+        canonical_url = canonical_category_url(url)
+        if canonical_url:
+            urls_by_canonical[canonical_url].append(path)
+
+    duplicate_groups = {
+        url: paths
+        for url, paths in urls_by_canonical.items()
+        if len(paths) > 1
+    }
+    return {
+        "total_records": len(categories or {}),
+        "unscoped_aliases": sorted(unscoped_aliases),
+        "missing_node": sorted(missing_node),
+        "department_mismatches": sorted(department_mismatches),
+        "duplicate_url_groups": len(duplicate_groups),
+        "duplicate_urls": duplicate_groups,
+    }
+
+
+def clean_category_entries(categories: dict) -> tuple[dict, dict]:
+    allowed_roots = tuple(DEPARTMENT_SLUG_BY_ROOT)
+    cleaned = OrderedDict()
+    report = {
+        "records_before": len(categories or {}),
+        "records_after": 0,
+        "unscoped_aliases_removed": 0,
+        "department_mismatches_removed": 0,
+        "legacy_paths_removed": 0,
+        "urls_canonicalized": 0,
+    }
+
+    for path, payload in (categories or {}).items():
+        if not any(path == root or path.startswith(f"{root} > ") for root in allowed_roots):
+            report["unscoped_aliases_removed"] += 1
+            continue
+
+        payload = dict(payload or {})
+        raw_url = str(payload.get("url") or "")
+        if not category_url_matches_path(path, raw_url):
+            report["department_mismatches_removed"] += 1
+            continue
+        if is_legacy_home_path(path):
+            report["legacy_paths_removed"] += 1
+            continue
+
+        canonical_url = canonical_category_url(raw_url)
+        if canonical_url != normalized_category_url(raw_url):
+            report["urls_canonicalized"] += 1
+        payload["url"] = canonical_url
+        cleaned[path] = payload
+
+    report["records_after"] = len(cleaned)
+    return dict(cleaned), report
 
 
 def clean_home_category_entries(categories: dict) -> tuple[dict, dict]:

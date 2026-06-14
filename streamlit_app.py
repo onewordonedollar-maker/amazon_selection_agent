@@ -24,6 +24,7 @@ from src.category_mapping import (
     AIR_FRYERS_PATH,
     AIR_FRYERS_URL,
     category_url_matches_path,
+    clean_category_entries,
     is_legacy_home_path,
 )
 from src.chrome_cdp import (
@@ -932,6 +933,7 @@ def save_learned_category_links(seed_label: str, links) -> None:
             "depth": int(getattr(link, "depth", 0) or 0),
             "updated_at": datetime.now().isoformat(timespec="seconds"),
         }
+    learned["categories"], _ = clean_category_entries(categories)
     LEARNED_CATEGORY_LINKS.parent.mkdir(parents=True, exist_ok=True)
     LEARNED_CATEGORY_LINKS.write_text(json.dumps(learned, ensure_ascii=False, indent=2), encoding="utf-8")
     load_learned_category_links_cached.cache_clear()
