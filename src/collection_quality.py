@@ -8,6 +8,11 @@ def is_collection_quality_warning(message: str) -> bool:
     return str(message or "").startswith(QUANTITY_WARNING_PREFIX)
 
 
+def is_sellersprite_load_failure(message: str) -> bool:
+    text = str(message or "")
+    return "卖家精灵" in text and ("未完全加载" in text or "未加载完整" in text)
+
+
 def evaluate_sellersprite_collection_quality(
     unique_product_count: int,
     refresh_results: list,
@@ -21,6 +26,9 @@ def evaluate_sellersprite_collection_quality(
         return False, "没有读取到页面"
     if any(result.message == empty_message for result in refresh_results):
         return True, empty_message
+    failed_results = [result for result in refresh_results if not bool(getattr(result, "ok", True))]
+    if failed_results:
+        return False, str(getattr(failed_results[-1], "message", "") or "页面采集未完成")
 
     page_counts = [int(getattr(result, "product_count", 0) or 0) for result in refresh_results]
     hydrated_counts = [int(getattr(result, "hydrated_count", 0) or 0) for result in refresh_results]

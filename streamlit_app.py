@@ -27,6 +27,7 @@ from src.category_mapping import (
     is_legacy_home_path,
 )
 from src.chrome_cdp import (
+    SELLERSPRITE_INCOMPLETE_MESSAGE,
     chrome_debugger_available,
     discover_bestseller_category_links,
     is_rank_category_url,
@@ -35,6 +36,7 @@ from src.chrome_cdp import (
 from src.collection_quality import (
     evaluate_sellersprite_collection_quality,
     is_collection_quality_warning,
+    is_sellersprite_load_failure,
 )
 from src.collection_status import build_collection_total_status_text
 from src.sellersprite_parser import (
@@ -296,6 +298,13 @@ class Product:
 
 class CollectionStopped(RuntimeError):
     pass
+
+
+class SellerSpriteLoadTimeout(RuntimeError):
+    def __init__(self, message: str, products: list[Product], page_count: int):
+        super().__init__(message)
+        self.products = products
+        self.page_count = page_count
 
 
 def clear_stop_collection_flag() -> None:
@@ -2270,7 +2279,7 @@ def collect_sellersprite_entry(
             if "there are no hot new releases available in this category" in cached_text.lower():
                 refresh_result.ok = True
                 refresh_result.message = EMPTY_NEW_RELEASES_MESSAGE
-            else:
+            elif refresh_result.message != SELLERSPRITE_INCOMPLETE_MESSAGE:
                 raise RuntimeError(refresh_result.message)
         page_name = "第一页" if page == 1 else "第二页" if page == 2 else f"第 {page} 页"
         parsed_products = collect_sellersprite_products(
@@ -2422,6 +2431,12 @@ def collect_sellersprite_batch(
     )
     if not quality_ok:
         set_batch_progress(99, f"{quality_message}。疑似漏采，已保留当前能解析到的产品。")
+        if is_sellersprite_load_failure(quality_message):
+            raise SellerSpriteLoadTimeout(
+                f"卖家精灵加载超时，已暂停整轮采集：{quality_message}",
+                products,
+                len(refresh_results),
+            )
     set_batch_progress(100, f"当前入口完成：读取 {len(refresh_results)} 页，原始去重 {len(products)} 条。")
     return products, quality_ok, quality_message, len(refresh_results)
 
@@ -2523,6 +2538,42 @@ def collect_sellersprite_batch_from_seeds(
                 progress_prefix="",
                 total_status_placeholder=total_status_placeholder,
             )
+        except SellerSpriteLoadTimeout as exc:
+            added = 0
+            for product in exc.products:
+                existing = raw_by_asin.get(product.asin)
+                if not existing:
+                    added += 1
+                    raw_by_asin[product.asin] = product
+                else:
+                    raw_by_asin[product.asin] = merge_product_records(existing, product)
+            stage_raw_products(list(raw_by_asin.values()))
+            st.session_state.collection_failed_seed_count += 1
+            st.session_state.collection_failed_seed_details.append({
+                "label": seed_label,
+                "url": seed_url,
+                "error": str(exc),
+            })
+            seed_summaries.append({
+                "label": seed_label,
+                "url": seed_url,
+                "added": added,
+                "raw": len(exc.products),
+                "quality_ok": False,
+                "quality_message": str(exc),
+                "pages": exc.page_count,
+                "failed": True,
+                "warning": False,
+                "empty": False,
+                "error": str(exc),
+            })
+            st.session_state.collection_total_raw_count = len(raw_by_asin)
+            save_collection_report(seed_summaries, len(raw_by_asin), "paused", seed_urls)
+            log(
+                f"Seed {seed_index}/{len(seed_urls)} paused the batch after SellerSprite timeout: "
+                f"{seed_label}. Kept {added} partial products."
+            )
+            raise
         except CollectionStopped:
             for product in st.session_state.get("collection_staged_raw_products", []):
                 existing = raw_by_asin.get(product.asin)
@@ -4497,6 +4548,12 @@ if run:
                     progress_label=target_label,
                     category_path=target_label,
                 )
+                if not quality_ok and is_sellersprite_load_failure(quality_message):
+                    raise SellerSpriteLoadTimeout(
+                        f"卖家精灵加载超时，已暂停采集：{quality_message}",
+                        collected_products,
+                        len(refresh_results),
+                    )
                 st.session_state.collection_completed_seed_count = 1
                 st.session_state.collection_current_seed_index = 0
                 st.session_state.collection_current_seed_label = ""
@@ -4579,6 +4636,59 @@ if run:
             f"Kept {len(st.session_state.products)}/{len(collected_products)}, "
             f"removed {len(collected_products) - len(st.session_state.products)}."
         )
+    except SellerSpriteLoadTimeout as exc:
+        if not collected_products:
+            collected_products = st.session_state.get("collection_staged_raw_products", [])
+        timeout_label = target_label if "target_label" in locals() else (
+            collection_label if "collection_label" in locals() else "当前入口"
+        )
+        timeout_url = target_url if "target_url" in locals() else ""
+        is_batch_timeout = bool(
+            "should_batch_category_collect" in locals()
+            and should_batch_category_collect
+        )
+        if not is_batch_timeout:
+            st.session_state.collection_failed_seed_count += 1
+            st.session_state.collection_failed_seed_details.append({
+                "label": timeout_label,
+                "url": timeout_url,
+                "error": str(exc),
+            })
+            save_collection_report(
+                [{
+                    "label": timeout_label,
+                    "url": timeout_url,
+                    "added": len(collected_products),
+                    "raw": len(collected_products),
+                    "quality_ok": False,
+                    "quality_message": str(exc),
+                    "pages": exc.page_count,
+                    "failed": True,
+                    "warning": False,
+                    "empty": False,
+                    "error": str(exc),
+                }],
+                len(collected_products),
+                "paused",
+                [(timeout_label, timeout_url)],
+            )
+        if collected_products:
+            for product in collected_products:
+                product.selected = False
+            st.session_state.raw_products = collected_products
+            apply_filters_to_raw_pool(filters)
+            save_raw_products(
+                collected_products,
+                collection_label if "collection_label" in locals() else "卖家精灵加载超时",
+                timeout_url,
+            )
+            st.session_state.last_raw_products_message = (
+                f"卖家精灵加载超时，整轮采集已暂停；已保存当前原始采集池：{len(collected_products)} 条。"
+                "请确认插件在当前 Amazon 页面加载正常后再重新开始。"
+            )
+        st.session_state.last_collection_summary = str(exc)
+        log(f"Collection paused after SellerSprite load timeout. Kept {len(collected_products)} products.")
+        st.warning(str(exc))
     except CollectionStopped as exc:
         if not collected_products:
             collected_products = st.session_state.get("collection_staged_raw_products", [])

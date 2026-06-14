@@ -34,6 +34,7 @@ def _interruptible_sleep(seconds: float, stop_check=None, interval: float = 0.2)
             return
         time.sleep(min(interval, remaining))
 SELLERSPRITE_MARKERS = ("近30天销量(父体)", "销售额", "FBA费用")
+SELLERSPRITE_INCOMPLETE_MESSAGE = "已保存当前页面数据，但卖家精灵补充字段仍未完全加载。"
 
 
 INVALID_RANK_CATEGORY_PREFIX = "榜单入口校验失败"
@@ -58,6 +59,18 @@ class CategoryLink:
     depth: int = 0
     is_leaf: bool = True
     path: str = ""
+
+
+def should_advance_to_next_page(
+    result: ChromeRefreshResult,
+    page: int,
+    page_count: int,
+) -> bool:
+    return bool(
+        result.ok
+        and result.message != EMPTY_NEW_RELEASES_MESSAGE
+        and page < page_count
+    )
 
 
 def _rank_category_parts(url: str) -> tuple[str, str, str]:
@@ -629,9 +642,7 @@ def refresh_sellersprite_cache_pages(
             if page_callback:
                 page_callback(page, result)
             _check_stop(stop_check)
-            if result.message == EMPTY_NEW_RELEASES_MESSAGE:
-                break
-            if page >= page_count:
+            if not should_advance_to_next_page(result, page, page_count):
                 break
             clicked = client.evaluate(_CLICK_NEXT_PAGE_SCRIPT, timeout=10)
             _check_stop(stop_check)
@@ -823,7 +834,7 @@ def _capture_current_sellersprite_page(
     if empty_new_releases:
         message = EMPTY_NEW_RELEASES_MESSAGE
     else:
-        message = "\u5237\u65b0\u5b8c\u6210\u3002" if ok else "\u5df2\u4fdd\u5b58\u5f53\u524d\u9875\u9762\u6570\u636e\uff0c\u4f46\u5356\u5bb6\u7cbe\u7075\u8865\u5145\u5b57\u6bb5\u4ecd\u672a\u5b8c\u5168\u52a0\u8f7d\u3002"
+        message = "\u5237\u65b0\u5b8c\u6210\u3002" if ok else SELLERSPRITE_INCOMPLETE_MESSAGE
     return ChromeRefreshResult(ok, best_product_count, best_hydrated_count, len(best_images), source_url, message, next_page_url)
 
 
