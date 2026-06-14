@@ -1,6 +1,10 @@
 import unittest
 
-from src.chrome_cdp import rank_category_identity, validate_rank_category_page
+from src.chrome_cdp import (
+    is_rank_category_url,
+    rank_category_identity,
+    validate_rank_category_page,
+)
 
 
 EXPECTED = "https://www.amazon.com/gp/new-releases/home-garden/17659096011"
@@ -41,6 +45,44 @@ class RankPageValidationTests(unittest.TestCase):
         )
         self.assertTrue(valid)
         self.assertEqual(message, "")
+
+    def test_best_sellers_zgbs_second_page_is_accepted(self):
+        expected = "https://www.amazon.com/gp/bestsellers/home-garden/9442715011"
+        actual = (
+            "https://www.amazon.com/Best-Sellers-Home-Kitchen-Home-Ashtrays/"
+            "zgbs/home-garden/9442715011/ref=zg_bs_pg_2_home-garden"
+            "?_encoding=UTF8&pg=2"
+        )
+
+        self.assertTrue(is_rank_category_url(actual))
+        self.assertEqual(rank_category_identity(actual), ("home-garden", "9442715011"))
+
+        valid, message = validate_rank_category_page(
+            expected,
+            {
+                "url": actual,
+                "selectedText": "Home Ashtrays",
+                "unavailableText": "",
+            },
+        )
+        self.assertTrue(valid)
+        self.assertEqual(message, "")
+
+    def test_best_sellers_zgbs_different_node_is_rejected(self):
+        expected = "https://www.amazon.com/gp/bestsellers/home-garden/9442715011"
+        valid, message = validate_rank_category_page(
+            expected,
+            {
+                "url": (
+                    "https://www.amazon.com/Best-Sellers-Other/"
+                    "zgbs/home-garden/12345678901/ref=zg_bs_pg_2_home-garden?pg=2"
+                ),
+                "selectedText": "Other category",
+                "unavailableText": "",
+            },
+        )
+        self.assertFalse(valid)
+        self.assertIn("页面跳离目标类目", message)
 
     def test_same_node_on_different_ranking_type_is_rejected(self):
         valid, message = validate_rank_category_page(

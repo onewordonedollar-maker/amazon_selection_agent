@@ -60,30 +60,32 @@ class CategoryLink:
     path: str = ""
 
 
+def _rank_category_parts(url: str) -> tuple[str, str, str]:
+    parsed = urlparse(url or "")
+    gp_match = re.search(
+        r"/gp/(bestsellers|new-releases)/([^/?#]+)(?:/(\d{5,}))?",
+        parsed.path,
+    )
+    if gp_match:
+        kind = gp_match.group(1)
+        department = gp_match.group(2).strip("/")
+        node = gp_match.group(3) or parse_qs(parsed.query).get("node", [""])[0]
+        return kind, department, node
+
+    zgbs_match = re.search(r"/zgbs/([^/?#]+)/(\d{5,})(?:/|$)", parsed.path)
+    if zgbs_match:
+        return "bestsellers", zgbs_match.group(1).strip("/"), zgbs_match.group(2)
+
+    return "", "", ""
+
+
 def is_rank_category_url(url: str) -> bool:
-    parsed = urlparse(url)
-    match = re.search(r"/gp/(?:bestsellers|new-releases)/([^/?#]+)", parsed.path)
-    if not match:
-        return False
-    department = match.group(1).strip("/")
-    if not department:
-        return False
-    path_after_department = parsed.path[match.end():]
-    path_node = re.search(r"/(\d{5,})(?:/|$)", path_after_department)
-    query_node = parse_qs(parsed.query).get("node", [""])[0]
-    return bool(path_node or query_node)
+    kind, department, node = _rank_category_parts(url)
+    return bool(kind and department and node)
 
 
 def rank_category_identity(url: str) -> tuple[str, str]:
-    parsed = urlparse(url or "")
-    match = re.search(
-        r"/gp/(?:bestsellers|new-releases)/([^/?#]+)(?:/(\d{5,}))?",
-        parsed.path,
-    )
-    if not match:
-        return "", ""
-    department = match.group(1).strip("/")
-    node = match.group(2) or parse_qs(parsed.query).get("node", [""])[0]
+    _, department, node = _rank_category_parts(url)
     return department, node
 
 
@@ -92,12 +94,8 @@ def validate_rank_category_page(expected_url: str, page_state: dict | None) -> t
     actual_url = str(state.get("url") or "")
     selected_text = re.sub(r"\s+", " ", str(state.get("selectedText") or "")).strip()
     unavailable_text = re.sub(r"\s+", " ", str(state.get("unavailableText") or "")).strip()
-    expected_department, expected_node = rank_category_identity(expected_url)
-    actual_department, actual_node = rank_category_identity(actual_url)
-    expected_kind_match = re.search(r"/gp/(bestsellers|new-releases)/", urlparse(expected_url or "").path)
-    actual_kind_match = re.search(r"/gp/(bestsellers|new-releases)/", urlparse(actual_url).path)
-    expected_kind = expected_kind_match.group(1) if expected_kind_match else ""
-    actual_kind = actual_kind_match.group(1) if actual_kind_match else ""
+    expected_kind, expected_department, expected_node = _rank_category_parts(expected_url)
+    actual_kind, actual_department, actual_node = _rank_category_parts(actual_url)
 
     if not expected_department or not expected_node:
         return False, f"{INVALID_RANK_CATEGORY_PREFIX}：请求链接不是具体榜单类目页。"
@@ -1100,6 +1098,25 @@ _SWEEP_PAGE_SCRIPT = r"""
 
 _NEXT_PAGE_SCRIPT = r"""
 (() => {
+  const rankIdentity = (value) => {
+    try {
+      const url = new URL(value, location.href);
+      const gp = url.pathname.match(/\/gp\/(bestsellers|new-releases)\/([^/?#]+)(?:\/(\d{5,}))?/);
+      if (gp) {
+        return {
+          kind: gp[1],
+          department: gp[2],
+          node: gp[3] || url.searchParams.get("node") || ""
+        };
+      }
+      const zgbs = url.pathname.match(/\/zgbs\/([^/?#]+)\/(\d{5,})(?:\/|$)/);
+      if (zgbs) {
+        return {kind: "bestsellers", department: zgbs[1], node: zgbs[2]};
+      }
+    } catch {}
+    return {kind: "", department: "", node: ""};
+  };
+  const current = rankIdentity(location.href);
   const selectors = [
     ".a-pagination li.a-last:not(.a-disabled) a[href]",
     "li.a-last:not(.a-disabled) a[href]",
@@ -1111,9 +1128,15 @@ _NEXT_PAGE_SCRIPT = r"""
     if (!link) continue;
     try {
       const url = new URL(link.href, location.href);
-      const isRankPage = /\/gp\/(?:bestsellers|new-releases)\//.test(url.pathname);
+      const target = rankIdentity(url.href);
+      const isSameCategory = Boolean(
+        current.kind &&
+        current.node &&
+        target.kind === current.kind &&
+        target.node === current.node
+      );
       const isNextPage = url.searchParams.get("pg") === "2" || /(?:^|_)pg_2(?:_|$)/.test(url.pathname + url.search);
-      if (isRankPage && isNextPage) return url.href;
+      if (isSameCategory && isNextPage) return url.href;
     } catch {}
   }
   return "";
@@ -1123,6 +1146,25 @@ _NEXT_PAGE_SCRIPT = r"""
 
 _CLICK_NEXT_PAGE_SCRIPT = r"""
 (() => {
+  const rankIdentity = (value) => {
+    try {
+      const url = new URL(value, location.href);
+      const gp = url.pathname.match(/\/gp\/(bestsellers|new-releases)\/([^/?#]+)(?:\/(\d{5,}))?/);
+      if (gp) {
+        return {
+          kind: gp[1],
+          department: gp[2],
+          node: gp[3] || url.searchParams.get("node") || ""
+        };
+      }
+      const zgbs = url.pathname.match(/\/zgbs\/([^/?#]+)\/(\d{5,})(?:\/|$)/);
+      if (zgbs) {
+        return {kind: "bestsellers", department: zgbs[1], node: zgbs[2]};
+      }
+    } catch {}
+    return {kind: "", department: "", node: ""};
+  };
+  const current = rankIdentity(location.href);
   const selectors = [
     ".a-pagination li.a-last:not(.a-disabled) a[href]",
     "li.a-last:not(.a-disabled) a[href]",
@@ -1134,9 +1176,15 @@ _CLICK_NEXT_PAGE_SCRIPT = r"""
     if (!link) continue;
     try {
       const url = new URL(link.href, location.href);
-      const isRankPage = /\/gp\/(?:bestsellers|new-releases)\//.test(url.pathname);
+      const target = rankIdentity(url.href);
+      const isSameCategory = Boolean(
+        current.kind &&
+        current.node &&
+        target.kind === current.kind &&
+        target.node === current.node
+      );
       const isNextPage = url.searchParams.get("pg") === "2" || /(?:^|_)pg_2(?:_|$)/.test(url.pathname + url.search);
-      if (!isRankPage || !isNextPage) continue;
+      if (!isSameCategory || !isNextPage) continue;
       link.scrollIntoView({block: "center", inline: "center"});
       link.click();
       return {clicked: true, href: url.href, method: selector};

@@ -224,3 +224,47 @@ Chrome profile、扩展缓存、浏览器缓存和采集输出占据大部分空
 - 只放行正式类目映射文件。
 - 提交前使用 `git status` 和 `git ls-files` 检查。
 
+## 14. Best Sellers 的真实下一页链接不一定保留 `/gp/bestsellers/`
+
+**现象**
+
+第一页可以识别约 46 到 50 个产品，SellerSprite 字段也已加载完整，但采集报告始终只有一页，
+没有进入第二页。
+
+**根因**
+
+Best Sellers 入口通常是：
+
+```text
+/gp/bestsellers/{department}/{node_id}
+```
+
+但页面中真实的“Next page”按钮可能指向：
+
+```text
+/Best-Sellers-.../zgbs/{department}/{node_id}/...?...&pg=2
+```
+
+如果程序只接受包含 `/gp/bestsellers/` 的下一页链接，就会错误拒绝 Amazon 页面提供的真实
+`/zgbs/` 分页按钮。页面上虽然有按钮，程序却会判断为“没有下一页”。
+
+**正确做法**
+
+- 第一页采集完成后，查找页面中可见、可用的真实 `Next page` 分页控件。
+- 使用浏览器模拟点击该控件，不手工拼接第二页 URL，也不直接跳转到推测的 URL。
+- 不要求分页按钮的 `href` 继续使用 `/gp/bestsellers/` 路径。
+- 点击前后验证榜单类型仍为 Best Sellers，并验证 Node ID 没有改变。
+- 允许 Amazon 改写页面标题、部门 slug 和路径形式，但不能进入其他类目或其他榜单。
+- 确认页面确实切换后，再执行既有的等待、滚动、SellerSprite 加载和采集流程。
+
+**验证**
+
+- 采集报告包含第一页和第二页两条页面记录。
+- 第二页出现新的唯一 ASIN，而不是重复读取第一页。
+- 进度区明确显示当前小类的“第一页”和“第二页”。
+- Node ID 改变、榜单类型改变或分页按钮不可用时，应停止该入口并记录明确原因。
+
+**已确认案例**
+
+2026-06-14，Best Sellers 的 Home Ashtrays（Node ID `9442715011`）入口使用
+`/gp/bestsellers/`，但真实第二页按钮使用 `/zgbs/` 路径。该案例可作为分页回归测试样本。
