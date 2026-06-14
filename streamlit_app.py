@@ -32,6 +32,11 @@ from src.chrome_cdp import (
     is_rank_category_url,
     refresh_sellersprite_cache_pages,
 )
+from src.collection_quality import (
+    evaluate_sellersprite_collection_quality,
+    is_collection_quality_warning,
+)
+from src.collection_status import build_collection_total_status_text
 from src.sellersprite_parser import (
     load_cached_sellersprite_products,
     sellersprite_product_hydrated,
@@ -486,6 +491,8 @@ def ensure_state():
         st.session_state.collection_completed_seed_count = 0
     if "collection_failed_seed_count" not in st.session_state:
         st.session_state.collection_failed_seed_count = 0
+    if "collection_warning_seed_count" not in st.session_state:
+        st.session_state.collection_warning_seed_count = 0
     if "collection_empty_seed_count" not in st.session_state:
         st.session_state.collection_empty_seed_count = 0
     if "collection_failed_seed_details" not in st.session_state:
@@ -505,8 +512,29 @@ def ensure_state():
             except (json.JSONDecodeError, OSError):
                 persisted_failures = []
         st.session_state.collection_failed_seed_details = persisted_failures
+    if "collection_warning_seed_details" not in st.session_state:
+        persisted_warnings = []
+        if LAST_COLLECTION_REPORT.exists():
+            try:
+                previous_report = json.loads(LAST_COLLECTION_REPORT.read_text(encoding="utf-8"))
+                persisted_warnings = [
+                    {
+                        "label": item.get("label", "未知入口"),
+                        "url": item.get("url", ""),
+                        "warning": item.get("quality_message") or "产品数量偏少",
+                    }
+                    for item in previous_report.get("entries", [])
+                    if item.get("warning")
+                ]
+            except (json.JSONDecodeError, OSError):
+                persisted_warnings = []
+        st.session_state.collection_warning_seed_details = persisted_warnings
     if "collection_total_seed_count" not in st.session_state:
         st.session_state.collection_total_seed_count = 0
+    if "collection_current_seed_index" not in st.session_state:
+        st.session_state.collection_current_seed_index = 0
+    if "collection_current_seed_label" not in st.session_state:
+        st.session_state.collection_current_seed_label = ""
 
 
 def log(message: str):
@@ -702,6 +730,7 @@ def save_collection_report(
         "planned_seed_count": len(planned_seeds or []),
         "completed_seed_count": len(seed_summaries),
         "failed_seed_count": sum(bool(item.get("failed")) for item in seed_summaries),
+        "warning_seed_count": sum(bool(item.get("warning")) for item in seed_summaries),
         "empty_seed_count": sum(bool(item.get("empty")) for item in seed_summaries),
         "total_raw_count": total_raw_count,
         "planned_seeds": [
@@ -762,26 +791,34 @@ def reset_collection_run_messages() -> None:
     st.session_state.collection_total_raw_count = 0
     st.session_state.collection_completed_seed_count = 0
     st.session_state.collection_failed_seed_count = 0
+    st.session_state.collection_warning_seed_count = 0
     st.session_state.collection_empty_seed_count = 0
     st.session_state.collection_failed_seed_details = []
+    st.session_state.collection_warning_seed_details = []
     st.session_state.collection_total_seed_count = 0
+    st.session_state.collection_current_seed_index = 0
+    st.session_state.collection_current_seed_label = ""
 
 
 def update_collection_total_status(placeholder=None) -> None:
     total_raw = int(st.session_state.get("collection_total_raw_count", 0) or 0)
     completed = int(st.session_state.get("collection_completed_seed_count", 0) or 0)
     failed = int(st.session_state.get("collection_failed_seed_count", 0) or 0)
+    warning = int(st.session_state.get("collection_warning_seed_count", 0) or 0)
     empty = int(st.session_state.get("collection_empty_seed_count", 0) or 0)
     total_seeds = int(st.session_state.get("collection_total_seed_count", 0) or 0)
-    if total_seeds:
-        failure_text = f"｜失败入口：**{failed} 个**" if failed else ""
-        empty_text = f"｜空榜入口：**{empty} 个**" if empty else ""
-        text = (
-            f"本轮所有已选类目累计原始产品：**{total_raw:,} 条**｜"
-            f"已处理小类入口：**{completed}/{total_seeds}**{empty_text}{failure_text}"
-        )
-    else:
-        text = f"本轮所有已选类目累计原始产品：**{total_raw:,} 条**"
+    current_seed = int(st.session_state.get("collection_current_seed_index", 0) or 0)
+    current_label = str(st.session_state.get("collection_current_seed_label", "") or "")
+    text = build_collection_total_status_text(
+        total_raw=total_raw,
+        completed=completed,
+        total_seeds=total_seeds,
+        current_seed=current_seed,
+        current_label=current_label,
+        empty=empty,
+        warning=warning,
+        failed=failed,
+    )
     target = placeholder if placeholder is not None else st
     target.markdown(text)
 
@@ -2273,45 +2310,14 @@ def collect_sellersprite_entry(
 
 
 def sellersprite_collection_quality(products: list[Product], refresh_results: list) -> tuple[bool, str]:
-    if not refresh_results:
-        return False, "没有读取到页面"
-    if any(result.message == EMPTY_NEW_RELEASES_MESSAGE for result in refresh_results):
-        return True, EMPTY_NEW_RELEASES_MESSAGE
-    page_counts = [int(getattr(result, "product_count", 0) or 0) for result in refresh_results]
-    hydrated_counts = [int(getattr(result, "hydrated_count", 0) or 0) for result in refresh_results]
-    page_detail = "；".join(
-        f"第{i + 1}页：页面产品 {int(getattr(result, 'product_count', 0) or 0)} 条，"
-        f"卖家精灵字段完整 {int(getattr(result, 'hydrated_count', 0) or 0)} 条"
-        for i, result in enumerate(refresh_results)
+    return evaluate_sellersprite_collection_quality(
+        len(products),
+        refresh_results,
+        empty_message=EMPTY_NEW_RELEASES_MESSAGE,
+        expected_products_per_page=SELLERSPRITE_EXPECTED_PRODUCTS_PER_PAGE,
+        min_products_per_page=SELLERSPRITE_MIN_PRODUCTS_PER_PAGE,
+        min_products_two_pages=SELLERSPRITE_MIN_PRODUCTS_TWO_PAGES,
     )
-    if len(refresh_results) < 2:
-        return False, f"只读取到 {len(refresh_results)} 页；{page_detail}。需要第 1 页和第 2 页都完成，才算一个入口完整。"
-    weak_pages = [
-        f"第{i + 1}页 {count} 条"
-        for i, count in enumerate(page_counts[:2])
-        if count < SELLERSPRITE_MIN_PRODUCTS_PER_PAGE
-    ]
-    if weak_pages:
-        return False, (
-            f"页面产品数偏少：{'，'.join(weak_pages)}；预期每页接近 {SELLERSPRITE_EXPECTED_PRODUCTS_PER_PAGE} 条。"
-            f"{page_detail}。"
-        )
-    weak_plugin_pages = [
-        f"第{i + 1}页 {hydrated_count}/{product_count} 条"
-        for i, (product_count, hydrated_count) in enumerate(zip(page_counts[:2], hydrated_counts[:2]))
-        if hydrated_count < min(product_count, SELLERSPRITE_MIN_PRODUCTS_PER_PAGE)
-    ]
-    if weak_plugin_pages:
-        return False, (
-            f"卖家精灵父体月销量字段未加载完整：{'，'.join(weak_plugin_pages)}。"
-            f"{page_detail}。"
-        )
-    if len(products) < SELLERSPRITE_MIN_PRODUCTS_TWO_PAGES:
-        return False, (
-            f"两页页面数量接近正常，但去重 ASIN 只有 {len(products)} 条，低于预期接近 100 条。"
-            f"{page_detail}。这通常表示第二页重复、翻页失败，或页面没有完全加载。"
-        )
-    return True, f"两页采集正常：原始去重 {len(products)} 条。{page_detail}。"
 
 
 def collect_sellersprite_entry_with_quality_retry(
@@ -2484,13 +2490,21 @@ def collect_sellersprite_batch_from_seeds(
     st.session_state.collection_total_seed_count = len(seed_urls)
     st.session_state.collection_completed_seed_count = 0
     st.session_state.collection_failed_seed_count = 0
+    st.session_state.collection_warning_seed_count = 0
     st.session_state.collection_empty_seed_count = 0
     st.session_state.collection_failed_seed_details = []
+    st.session_state.collection_warning_seed_details = []
     st.session_state.collection_total_raw_count = 0
+    st.session_state.collection_current_seed_index = 0
+    st.session_state.collection_current_seed_label = ""
     save_collection_report([], 0, "running", seed_urls)
     update_collection_total_status(total_status_placeholder)
     for seed_index, (seed_label, seed_url) in enumerate(seed_urls, start=1):
         raise_if_stop_requested()
+        seed_finished = False
+        st.session_state.collection_current_seed_index = seed_index
+        st.session_state.collection_current_seed_label = seed_label
+        update_collection_total_status(total_status_placeholder)
         seed_start = int(((seed_index - 1) / len(seed_urls)) * 100)
         seed_end = int((seed_index / len(seed_urls)) * 100)
         progress_bar.progress(
@@ -2543,6 +2557,7 @@ def collect_sellersprite_batch_from_seeds(
                 "quality_message": f"入口采集失败：{error_message}",
                 "pages": 0,
                 "failed": True,
+                "warning": False,
                 "error": error_message,
             })
             save_collection_report(seed_summaries, len(raw_by_asin), "running", seed_urls)
@@ -2557,6 +2572,7 @@ def collect_sellersprite_batch_from_seeds(
                 f"Seed {seed_index}/{len(seed_urls)} failed: {seed_label}. "
                 f"Kept {added} partial products. Error: {error_message}"
             )
+            seed_finished = True
         else:
             added = 0
             for product in seed_products:
@@ -2580,6 +2596,7 @@ def collect_sellersprite_batch_from_seeds(
                 "quality_message": quality_message,
                 "pages": page_read_count,
                 "failed": not quality_ok and quality_message != EMPTY_NEW_RELEASES_MESSAGE,
+                "warning": is_collection_quality_warning(quality_message),
                 "empty": quality_message == EMPTY_NEW_RELEASES_MESSAGE,
                 "error": "" if quality_ok else quality_message,
             })
@@ -2590,18 +2607,30 @@ def collect_sellersprite_batch_from_seeds(
                     "url": seed_url,
                     "error": quality_message,
                 })
+            if is_collection_quality_warning(quality_message):
+                st.session_state.collection_warning_seed_count += 1
+                st.session_state.collection_warning_seed_details.append({
+                    "label": seed_label,
+                    "url": seed_url,
+                    "warning": quality_message,
+                })
             save_collection_report(seed_summaries, len(raw_by_asin), "running", seed_urls)
             if quality_message == EMPTY_NEW_RELEASES_MESSAGE:
                 st.session_state.collection_empty_seed_count += 1
             log(f"Seed {seed_index}/{len(seed_urls)} finished: {seed_label}. added raw {added}, total raw {len(raw_by_asin)}.")
+            seed_finished = True
         finally:
-            st.session_state.collection_completed_seed_count = seed_index
             st.session_state.collection_total_raw_count = len(raw_by_asin)
+            if seed_finished:
+                st.session_state.collection_completed_seed_count = seed_index
+            st.session_state.collection_current_seed_index = 0
+            st.session_state.collection_current_seed_label = ""
             update_collection_total_status(total_status_placeholder)
     raise_if_stop_requested()
     progress_bar.progress(100, text=f"全部小类采集完成：原始去重合计 {len(raw_by_asin)} 条。现在可以应用筛选或查看产品列表。")
     ok_count = sum(1 for item in seed_summaries if item["quality_ok"])
     failed_items = [item for item in seed_summaries if item.get("failed")]
+    warning_items = [item for item in seed_summaries if item.get("warning")]
     empty_items = [item for item in seed_summaries if item.get("empty")]
     weak_items = [item for item in seed_summaries if not item["quality_ok"]]
     weak_preview = "；".join(f"{item['label']}（{item['quality_message']}）" for item in weak_items[:3])
@@ -2610,7 +2639,8 @@ def collect_sellersprite_batch_from_seeds(
         weak_suffix += f"；另有 {len(weak_items) - 3} 个小类请查看日志。"
     st.session_state.last_cache_refresh_message = (
         f"批量采集完成：计划入口 {len(seed_urls)} 个，实际处理 {len(seed_summaries)} 个；"
-        f"质量正常 {ok_count} 个（其中空榜 {len(empty_items)} 个），失败 {len(failed_items)} 个，"
+        f"质量通过 {ok_count} 个（其中数量偏少警告 {len(warning_items)} 个、空榜 {len(empty_items)} 个），"
+        f"失败 {len(failed_items)} 个，"
         f"疑似漏采或失败 {len(weak_items)} 个；原始去重合计 {len(raw_by_asin)} 条。"
         f"{weak_suffix}"
     )
@@ -4331,6 +4361,17 @@ with st.container(border=True):
             expanded=True,
         ):
             st.warning("\n\n".join(failure_lines))
+    warning_seed_details = st.session_state.get("collection_warning_seed_details", [])
+    if warning_seed_details:
+        warning_lines = [
+            f"{index}. {item.get('label', '未知入口')}：{item.get('warning', '产品数量偏少')}"
+            for index, item in enumerate(warning_seed_details, start=1)
+        ]
+        with st.expander(
+            f"本轮数量偏少警告（{len(warning_seed_details)} 个，不计为失败）",
+            expanded=False,
+        ):
+            st.info("\n\n".join(warning_lines))
 
     raw_count = len(st.session_state.raw_products)
     filtered_count = len(st.session_state.products)
@@ -4428,6 +4469,8 @@ if run:
                 st.session_state.collection_total_seed_count = 1
                 st.session_state.collection_completed_seed_count = 0
                 st.session_state.collection_total_raw_count = 0
+                st.session_state.collection_current_seed_index = 1
+                st.session_state.collection_current_seed_label = target_label
                 update_collection_total_status(collection_total_placeholder)
                 if selected_paths and (len(selected_paths) > 1 or any(find_exact_category_url(path) for path in selected_paths)):
                     st.session_state.last_category_mapping_message = (
@@ -4455,6 +4498,8 @@ if run:
                     category_path=target_label,
                 )
                 st.session_state.collection_completed_seed_count = 1
+                st.session_state.collection_current_seed_index = 0
+                st.session_state.collection_current_seed_label = ""
                 st.session_state.collection_total_raw_count = len(collected_products)
                 update_collection_total_status(collection_total_placeholder)
                 total_product_count = sum(result.product_count for result in refresh_results)
@@ -4480,6 +4525,13 @@ if run:
                             "url": target_url,
                             "error": quality_message,
                         }]
+                if is_collection_quality_warning(quality_message):
+                    st.session_state.collection_warning_seed_count = 1
+                    st.session_state.collection_warning_seed_details = [{
+                        "label": target_label,
+                        "url": target_url,
+                        "warning": quality_message,
+                    }]
                 save_collection_report(
                     [{
                         "label": target_label,
@@ -4490,6 +4542,7 @@ if run:
                         "quality_message": quality_message,
                         "pages": len(refresh_results),
                         "failed": not quality_ok and quality_message != EMPTY_NEW_RELEASES_MESSAGE,
+                        "warning": is_collection_quality_warning(quality_message),
                         "empty": quality_message == EMPTY_NEW_RELEASES_MESSAGE,
                         "error": "" if quality_ok else quality_message,
                     }],
@@ -4567,6 +4620,8 @@ if run:
         st.warning(f"{data_source} 实时采集失败：{exc}。请检查采集 Chrome、Amazon 登录、卖家精灵插件或类目链接。")
     finally:
         clear_progress_bar(active_progress_bar)
+        st.session_state.collection_current_seed_index = 0
+        st.session_state.collection_current_seed_label = ""
         st.session_state.collection_in_progress = False
         clear_collection_running_flag()
         clear_stop_collection_flag()
