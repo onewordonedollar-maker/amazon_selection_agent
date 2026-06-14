@@ -2434,7 +2434,7 @@ def collect_sellersprite_batch(
         set_batch_progress(99, f"{quality_message}。疑似漏采，已保留当前能解析到的产品。")
         if is_sellersprite_load_failure(quality_message):
             raise SellerSpriteLoadTimeout(
-                f"卖家精灵加载超时，已暂停整轮采集：{quality_message}",
+                f"当前入口卖家精灵加载超时：{quality_message}",
                 products,
                 len(refresh_results),
             )
@@ -4662,7 +4662,7 @@ if run:
                 )
                 if not quality_ok and is_sellersprite_load_failure(quality_message):
                     raise SellerSpriteLoadTimeout(
-                        f"卖家精灵加载超时，已暂停采集：{quality_message}",
+                        f"当前入口卖家精灵加载超时：{quality_message}",
                         collected_products,
                         len(refresh_results),
                     )

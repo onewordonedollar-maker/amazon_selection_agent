@@ -73,6 +73,18 @@ def should_advance_to_next_page(
     )
 
 
+def should_reload_incomplete_sellersprite_page(
+    result: ChromeRefreshResult,
+    recovery_attempted: bool,
+) -> bool:
+    return bool(
+        not recovery_attempted
+        and not result.ok
+        and result.message == SELLERSPRITE_INCOMPLETE_MESSAGE
+        and result.product_count > result.hydrated_count
+    )
+
+
 def _rank_category_parts(url: str) -> tuple[str, str, str]:
     parsed = urlparse(url or "")
     gp_match = re.search(
@@ -683,6 +695,7 @@ def _capture_current_sellersprite_page(
     min_capture_seconds: float = 25.0,
     progress=None,
     stop_check=None,
+    recovery_attempted: bool = False,
 ) -> ChromeRefreshResult:
     _check_stop(stop_check)
     source_url = client.evaluate("location.href", timeout=10) or ""
@@ -713,6 +726,11 @@ def _capture_current_sellersprite_page(
     client.evaluate(_SCROLL_TOP_SCRIPT, timeout=10)
     _interruptible_sleep(5, stop_check)
     observe_best()
+    activation = _activate_sellersprite_plugin(client)
+    if activation.get("clicked"):
+        _report(progress, 12, "已主动唤醒卖家精灵插件，等待插件开始补充产品字段。")
+        _interruptible_sleep(3, stop_check)
+        observe_best()
     page_state = client.evaluate(_RANK_PAGE_STATE_SCRIPT, timeout=10) or {}
     page_valid, page_error = validate_rank_category_page(
         expected_category_url or source_url,
@@ -835,7 +853,71 @@ def _capture_current_sellersprite_page(
         message = EMPTY_NEW_RELEASES_MESSAGE
     else:
         message = "\u5237\u65b0\u5b8c\u6210\u3002" if ok else SELLERSPRITE_INCOMPLETE_MESSAGE
-    return ChromeRefreshResult(ok, best_product_count, best_hydrated_count, len(best_images), source_url, message, next_page_url)
+    result = ChromeRefreshResult(
+        ok,
+        best_product_count,
+        best_hydrated_count,
+        len(best_images),
+        source_url,
+        message,
+        next_page_url,
+    )
+    _collapse_sellersprite_plugin(client)
+    if should_reload_incomplete_sellersprite_page(result, recovery_attempted):
+        _report(
+            progress,
+            96,
+            "卖家精灵字段仍未完整，正在刷新当前页面并重新执行本页加载流程。",
+        )
+        client.command("Page.reload", {"ignoreCache": False})
+        _wait_for_document_ready(client, stop_check=stop_check)
+        recovered = _capture_current_sellersprite_page(
+            client,
+            dom_cache_path,
+            image_cache_path,
+            meta_cache_path,
+            expected_category_url=expected_category_url,
+            expected_products=expected_products,
+            max_rounds=max_rounds,
+            wait_seconds=wait_seconds,
+            min_capture_seconds=min_capture_seconds,
+            progress=progress,
+            stop_check=stop_check,
+            recovery_attempted=True,
+        )
+        original_score = (result.hydrated_count, result.product_count, result.image_count)
+        recovered_score = (recovered.hydrated_count, recovered.product_count, recovered.image_count)
+        if recovered_score >= original_score:
+            return recovered
+        dom_cache_path.write_text(best_text, encoding="utf-8")
+        image_cache_path.write_text(json.dumps(best_images, ensure_ascii=False, indent=2), encoding="utf-8")
+        meta_cache_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+    return result
+
+
+def _activate_sellersprite_plugin(client: CDPClient) -> dict:
+    result = client.evaluate(_ACTIVATE_SELLERSPRITE_SCRIPT, timeout=10)
+    return result if isinstance(result, dict) else {"clicked": False, "available": False}
+
+
+def _collapse_sellersprite_plugin(client: CDPClient) -> dict:
+    result = client.evaluate(_COLLAPSE_SELLERSPRITE_SCRIPT, timeout=10)
+    return result if isinstance(result, dict) else {"collapsed": False}
+
+
+def _wait_for_document_ready(
+    client: CDPClient,
+    stop_check=None,
+    timeout_seconds: float = 20.0,
+) -> bool:
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        _check_stop(stop_check)
+        state = client.evaluate("document.readyState", timeout=10)
+        if state in {"interactive", "complete"}:
+            return True
+        _interruptible_sleep(0.5, stop_check)
+    return False
 
 
 def _observe_sellersprite_page(
@@ -900,6 +982,45 @@ _RANK_PAGE_STATE_SCRIPT = r"""
     unavailableText:
       unavailablePhrases.find((phrase) => lowered.includes(phrase)) || ""
   };
+})()
+"""
+
+
+_ACTIVATE_SELLERSPRITE_SCRIPT = r"""
+(() => {
+  const button = document.querySelector(".logo-btn-container");
+  const panel = document.querySelector("#seller-sprite-best-sellers-box");
+  if (!button) {
+    return {available: false, clicked: false, panelVisible: Boolean(panel)};
+  }
+  button.dispatchEvent(new MouseEvent("click", {
+    bubbles: true,
+    cancelable: true,
+    view: window
+  }));
+  return {available: true, clicked: true, panelVisible: Boolean(panel)};
+})()
+"""
+
+
+_COLLAPSE_SELLERSPRITE_SCRIPT = r"""
+(() => {
+  const control = document.querySelector(
+    "#seller-sprite-best-sellers-box .integrate-fold"
+  );
+  if (!control) {
+    return {available: false, collapsed: false};
+  }
+  const text = (control.innerText || control.textContent || "").trim();
+  if (text.includes("\u6536\u8d77")) {
+    control.dispatchEvent(new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      view: window
+    }));
+    return {available: true, collapsed: true};
+  }
+  return {available: true, collapsed: false};
 })()
 """
 
