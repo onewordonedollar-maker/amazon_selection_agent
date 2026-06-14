@@ -38,6 +38,7 @@ from src.collection_quality import (
     is_collection_quality_warning,
     is_sellersprite_load_failure,
 )
+from src.collection_retry import CollectionRetryQueue
 from src.collection_status import build_collection_total_status_text
 from src.sellersprite_parser import (
     load_cached_sellersprite_products,
@@ -2502,6 +2503,94 @@ def collect_sellersprite_batch_from_seeds(
         raise ValueError("没有可采集的类目链接。请先选择已映射的类目，或填写自定义 Amazon Best Sellers 链接。")
     raw_by_asin: dict[str, Product] = {}
     seed_summaries: list[dict] = []
+    deferred_seeds = CollectionRetryQueue()
+
+    def merge_seed_products(products: list[Product]) -> int:
+        added = 0
+        for product in products:
+            existing = raw_by_asin.get(product.asin)
+            if not existing:
+                added += 1
+                raw_by_asin[product.asin] = product
+            else:
+                raw_by_asin[product.asin] = merge_product_records(existing, product)
+        stage_raw_products(list(raw_by_asin.values()))
+        st.session_state.collection_total_raw_count = len(raw_by_asin)
+        return added
+
+    def append_failed_summary(
+        seed_label: str,
+        seed_url: str,
+        products: list[Product],
+        page_count: int,
+        error_message: str,
+        detail_error: str | None = None,
+    ) -> None:
+        added = merge_seed_products(products)
+        detail_message = detail_error or error_message
+        st.session_state.collection_failed_seed_count += 1
+        st.session_state.collection_failed_seed_details.append({
+            "label": seed_label,
+            "url": seed_url,
+            "error": detail_message,
+        })
+        seed_summaries.append({
+            "label": seed_label,
+            "url": seed_url,
+            "added": added,
+            "raw": len(products),
+            "quality_ok": False,
+            "quality_message": error_message,
+            "pages": page_count,
+            "failed": True,
+            "warning": False,
+            "empty": False,
+            "error": detail_message,
+        })
+
+    def append_success_summary(
+        seed_label: str,
+        seed_url: str,
+        products: list[Product],
+        quality_ok: bool,
+        quality_message: str,
+        page_count: int,
+    ) -> int:
+        added = merge_seed_products(products)
+        warning = is_collection_quality_warning(quality_message)
+        empty = quality_message == EMPTY_NEW_RELEASES_MESSAGE
+        failed = not quality_ok and not empty
+        seed_summaries.append({
+            "label": seed_label,
+            "url": seed_url,
+            "added": added,
+            "raw": len(products),
+            "quality_ok": quality_ok,
+            "quality_message": quality_message,
+            "pages": page_count,
+            "failed": failed,
+            "warning": warning,
+            "empty": empty,
+            "error": "" if quality_ok else quality_message,
+        })
+        if failed:
+            st.session_state.collection_failed_seed_count += 1
+            st.session_state.collection_failed_seed_details.append({
+                "label": seed_label,
+                "url": seed_url,
+                "error": quality_message,
+            })
+        if warning:
+            st.session_state.collection_warning_seed_count += 1
+            st.session_state.collection_warning_seed_details.append({
+                "label": seed_label,
+                "url": seed_url,
+                "warning": quality_message,
+            })
+        if empty:
+            st.session_state.collection_empty_seed_count += 1
+        return added
+
     st.session_state.collection_total_seed_count = len(seed_urls)
     st.session_state.collection_completed_seed_count = 0
     st.session_state.collection_failed_seed_count = 0
@@ -2520,8 +2609,8 @@ def collect_sellersprite_batch_from_seeds(
         st.session_state.collection_current_seed_index = seed_index
         st.session_state.collection_current_seed_label = seed_label
         update_collection_total_status(total_status_placeholder)
-        seed_start = int(((seed_index - 1) / len(seed_urls)) * 100)
-        seed_end = int((seed_index / len(seed_urls)) * 100)
+        seed_start = int(((seed_index - 1) / len(seed_urls)) * 90)
+        seed_end = int((seed_index / len(seed_urls)) * 90)
         progress_bar.progress(
             seed_start,
             text=f"准备采集小类 {seed_index}/{len(seed_urls)}：{seed_label}｜总原始去重 {len(raw_by_asin)} 条",
@@ -2539,41 +2628,26 @@ def collect_sellersprite_batch_from_seeds(
                 total_status_placeholder=total_status_placeholder,
             )
         except SellerSpriteLoadTimeout as exc:
-            added = 0
-            for product in exc.products:
-                existing = raw_by_asin.get(product.asin)
-                if not existing:
-                    added += 1
-                    raw_by_asin[product.asin] = product
-                else:
-                    raw_by_asin[product.asin] = merge_product_records(existing, product)
-            stage_raw_products(list(raw_by_asin.values()))
-            st.session_state.collection_failed_seed_count += 1
-            st.session_state.collection_failed_seed_details.append({
-                "label": seed_label,
-                "url": seed_url,
-                "error": str(exc),
-            })
-            seed_summaries.append({
-                "label": seed_label,
-                "url": seed_url,
-                "added": added,
-                "raw": len(exc.products),
-                "quality_ok": False,
-                "quality_message": str(exc),
-                "pages": exc.page_count,
-                "failed": True,
-                "warning": False,
-                "empty": False,
-                "error": str(exc),
-            })
-            st.session_state.collection_total_raw_count = len(raw_by_asin)
-            save_collection_report(seed_summaries, len(raw_by_asin), "paused", seed_urls)
-            log(
-                f"Seed {seed_index}/{len(seed_urls)} paused the batch after SellerSprite timeout: "
-                f"{seed_label}. Kept {added} partial products."
+            added = merge_seed_products(exc.products)
+            deferred_seeds.defer(
+                label=seed_label,
+                url=seed_url,
+                pages=exc.page_count,
+                products=exc.products,
+                error=str(exc),
             )
-            raise
+            save_collection_report(seed_summaries, len(raw_by_asin), "running", seed_urls)
+            progress_bar.progress(
+                seed_end,
+                text=(
+                    f"小类 {seed_index}/{len(seed_urls)} 插件加载超时，已加入末尾补采队列：{seed_label}｜"
+                    f"保留新增 ASIN {added} 条｜待补采 {len(deferred_seeds)} 个"
+                ),
+            )
+            log(
+                f"Seed {seed_index}/{len(seed_urls)} deferred after SellerSprite timeout: "
+                f"{seed_label}. Kept {added} partial products and continued."
+            )
         except CollectionStopped:
             for product in st.session_state.get("collection_staged_raw_products", []):
                 existing = raw_by_asin.get(product.asin)
@@ -2583,34 +2657,16 @@ def collect_sellersprite_batch_from_seeds(
             raise
         except Exception as exc:
             partial_products = st.session_state.get("collection_staged_raw_products", [])
-            added = 0
-            for product in partial_products:
-                existing = raw_by_asin.get(product.asin)
-                if not existing:
-                    added += 1
-                    raw_by_asin[product.asin] = product
-                else:
-                    raw_by_asin[product.asin] = merge_product_records(existing, product)
-            stage_raw_products(list(raw_by_asin.values()))
-            st.session_state.collection_failed_seed_count += 1
             error_message = str(exc).strip() or exc.__class__.__name__
-            st.session_state.collection_failed_seed_details.append({
-                "label": seed_label,
-                "url": seed_url,
-                "error": error_message,
-            })
-            seed_summaries.append({
-                "label": seed_label,
-                "url": seed_url,
-                "added": added,
-                "raw": len(partial_products),
-                "quality_ok": False,
-                "quality_message": f"入口采集失败：{error_message}",
-                "pages": 0,
-                "failed": True,
-                "warning": False,
-                "error": error_message,
-            })
+            append_failed_summary(
+                seed_label,
+                seed_url,
+                partial_products,
+                0,
+                f"入口采集失败：{error_message}",
+                detail_error=error_message,
+            )
+            added = seed_summaries[-1]["added"]
             save_collection_report(seed_summaries, len(raw_by_asin), "running", seed_urls)
             progress_bar.progress(
                 seed_end,
@@ -2625,59 +2681,115 @@ def collect_sellersprite_batch_from_seeds(
             )
             seed_finished = True
         else:
-            added = 0
-            for product in seed_products:
-                existing = raw_by_asin.get(product.asin)
-                if not existing:
-                    added += 1
-                    raw_by_asin[product.asin] = product
-                else:
-                    raw_by_asin[product.asin] = merge_product_records(existing, product)
-            stage_raw_products(list(raw_by_asin.values()))
+            added = append_success_summary(
+                seed_label,
+                seed_url,
+                seed_products,
+                quality_ok,
+                quality_message,
+                page_read_count,
+            )
             progress_bar.progress(
                 seed_end,
                 text=f"小类 {seed_index}/{len(seed_urls)} 完成：{seed_label}｜新增 ASIN {added} 条｜总原始去重 {len(raw_by_asin)} 条",
             )
-            seed_summaries.append({
-                "label": seed_label,
-                "url": seed_url,
-                "added": added,
-                "raw": len(seed_products),
-                "quality_ok": quality_ok,
-                "quality_message": quality_message,
-                "pages": page_read_count,
-                "failed": not quality_ok and quality_message != EMPTY_NEW_RELEASES_MESSAGE,
-                "warning": is_collection_quality_warning(quality_message),
-                "empty": quality_message == EMPTY_NEW_RELEASES_MESSAGE,
-                "error": "" if quality_ok else quality_message,
-            })
-            if not quality_ok and quality_message != EMPTY_NEW_RELEASES_MESSAGE:
-                st.session_state.collection_failed_seed_count += 1
-                st.session_state.collection_failed_seed_details.append({
-                    "label": seed_label,
-                    "url": seed_url,
-                    "error": quality_message,
-                })
-            if is_collection_quality_warning(quality_message):
-                st.session_state.collection_warning_seed_count += 1
-                st.session_state.collection_warning_seed_details.append({
-                    "label": seed_label,
-                    "url": seed_url,
-                    "warning": quality_message,
-                })
             save_collection_report(seed_summaries, len(raw_by_asin), "running", seed_urls)
-            if quality_message == EMPTY_NEW_RELEASES_MESSAGE:
-                st.session_state.collection_empty_seed_count += 1
             log(f"Seed {seed_index}/{len(seed_urls)} finished: {seed_label}. added raw {added}, total raw {len(raw_by_asin)}.")
             seed_finished = True
         finally:
             st.session_state.collection_total_raw_count = len(raw_by_asin)
             if seed_finished:
-                st.session_state.collection_completed_seed_count = seed_index
+                st.session_state.collection_completed_seed_count = len(seed_summaries)
             st.session_state.collection_current_seed_index = 0
             st.session_state.collection_current_seed_label = ""
             update_collection_total_status(total_status_placeholder)
     raise_if_stop_requested()
+
+    retry_total = len(deferred_seeds)
+    for retry_index, deferred in enumerate(deferred_seeds, start=1):
+        raise_if_stop_requested()
+        seed_label = deferred.label
+        seed_url = deferred.url
+        retry_start = 90 + int(((retry_index - 1) / max(retry_total, 1)) * 10)
+        retry_end = 90 + int((retry_index / max(retry_total, 1)) * 10)
+        st.session_state.collection_current_seed_index = min(
+            len(seed_summaries) + 1,
+            len(seed_urls),
+        )
+        st.session_state.collection_current_seed_label = f"补采：{seed_label}"
+        update_collection_total_status(total_status_placeholder)
+        progress_bar.progress(
+            retry_start,
+            text=f"末尾补采 {retry_index}/{retry_total}：{seed_label}｜总原始去重 {len(raw_by_asin)} 条",
+        )
+        try:
+            seed_products, quality_ok, quality_message, page_read_count = collect_sellersprite_batch(
+                amazon_url_for_list_type(seed_url, list_type),
+                list_type,
+                filters,
+                progress_bar,
+                seed_label=f"{seed_label}（末尾补采）",
+                progress_start=retry_start,
+                progress_end=retry_end,
+                progress_prefix="",
+                total_status_placeholder=total_status_placeholder,
+            )
+        except SellerSpriteLoadTimeout as exc:
+            append_failed_summary(
+                seed_label,
+                seed_url,
+                exc.products,
+                exc.page_count,
+                f"末尾补采仍失败：{exc}",
+            )
+            progress_bar.progress(
+                retry_end,
+                text=f"末尾补采 {retry_index}/{retry_total} 仍失败，已记录并继续：{seed_label}",
+            )
+            log(f"Deferred seed retry still failed: {seed_label}. Error: {exc}")
+        except CollectionStopped:
+            stage_raw_products(list(raw_by_asin.values()))
+            save_collection_report(seed_summaries, len(raw_by_asin), "stopped", seed_urls)
+            raise
+        except Exception as exc:
+            error_message = str(exc).strip() or exc.__class__.__name__
+            append_failed_summary(
+                seed_label,
+                seed_url,
+                deferred.products,
+                deferred.pages,
+                f"末尾补采异常：{error_message}",
+            )
+            progress_bar.progress(
+                retry_end,
+                text=f"末尾补采 {retry_index}/{retry_total} 异常，已记录并继续：{seed_label}",
+            )
+            log(f"Deferred seed retry raised an exception: {seed_label}. Error: {error_message}")
+        else:
+            added = append_success_summary(
+                seed_label,
+                seed_url,
+                seed_products,
+                quality_ok,
+                quality_message,
+                page_read_count,
+            )
+            progress_bar.progress(
+                retry_end,
+                text=(
+                    f"末尾补采 {retry_index}/{retry_total} 完成：{seed_label}｜"
+                    f"新增 ASIN {added} 条｜总原始去重 {len(raw_by_asin)} 条"
+                ),
+            )
+            log(f"Deferred seed retry finished: {seed_label}. added raw {added}.")
+        finally:
+            st.session_state.collection_completed_seed_count = len(seed_summaries)
+            st.session_state.collection_total_raw_count = len(raw_by_asin)
+            st.session_state.collection_current_seed_index = 0
+            st.session_state.collection_current_seed_label = ""
+            save_collection_report(seed_summaries, len(raw_by_asin), "running", seed_urls)
+            update_collection_total_status(total_status_placeholder)
+
     progress_bar.progress(100, text=f"全部小类采集完成：原始去重合计 {len(raw_by_asin)} 条。现在可以应用筛选或查看产品列表。")
     ok_count = sum(1 for item in seed_summaries if item["quality_ok"])
     failed_items = [item for item in seed_summaries if item.get("failed")]
