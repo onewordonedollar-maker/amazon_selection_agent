@@ -8,6 +8,7 @@ chrome_profile/
 # Local editor/runtime noise
 .venv/
 venv/
+.runtime/
 .env
 .DS_Store
 Thumbs.db

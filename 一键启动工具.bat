@@ -2,8 +2,33 @@
 setlocal
 
 set "ROOT=%~dp0"
-set "PYTHON_EXE=C:\Users\color\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
-if not exist "%PYTHON_EXE%" set "PYTHON_EXE=python"
+if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
+set "PYTHON_EXE=%ROOT%\.runtime\python\python.exe"
+set "SETUP_SCRIPT=%ROOT%\setup_runtime.ps1"
+set "START_SCRIPT=%ROOT%\start_streamlit.ps1"
+
+if not exist "%PYTHON_EXE%" (
+  echo Preparing the project Python runtime. This is only needed once...
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%SETUP_SCRIPT%"
+  if errorlevel 1 (
+    echo.
+    echo Runtime setup failed. Check the message above, then run this file again.
+    pause
+    exit /b 1
+  )
+)
+
+"%PYTHON_EXE%" -c "import streamlit, openpyxl" >nul 2>&1
+if errorlevel 1 (
+  echo Repairing project dependencies...
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%SETUP_SCRIPT%" -Repair
+  if errorlevel 1 (
+    echo.
+    echo Dependency repair failed. Check the message above, then run this file again.
+    pause
+    exit /b 1
+  )
+)
 
 set "CHROME_EXE=C:\Program Files\Google\Chrome\Application\chrome.exe"
 if not exist "%CHROME_EXE%" set "CHROME_EXE=C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
@@ -15,28 +40,16 @@ if not exist "%CHROME_EXE%" (
   exit /b 1
 )
 
-set "PROFILE_DIR=%ROOT%chrome_profile"
+set "PROFILE_DIR=%ROOT%\chrome_profile"
 if not exist "%PROFILE_DIR%" mkdir "%PROFILE_DIR%"
 
 echo Starting Amazon Selection Agent...
-echo.
-echo 1. Checking Streamlit on http://localhost:8501/
-powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $r = Invoke-WebRequest -UseBasicParsing 'http://localhost:8501/' -TimeoutSec 1; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%START_SCRIPT%" -PythonExe "%PYTHON_EXE%" -Root "%ROOT%"
 if errorlevel 1 (
-  echo Streamlit is not running. Starting it now...
-  start "Amazon Selection Agent - Streamlit" cmd /k ""%PYTHON_EXE%" -m streamlit run "%ROOT%streamlit_app.py" --server.port 8501 --server.headless true"
-  powershell -NoProfile -Command "Start-Sleep -Seconds 4"
-) else (
-  echo Streamlit is already running.
+  echo Streamlit could not be started.
+  pause
+  exit /b 1
 )
 
-echo 2. Opening collection Chrome with remote debugging port 9222
 start "" "%CHROME_EXE%" --remote-debugging-port=9222 --user-data-dir="%PROFILE_DIR%" --no-first-run --no-default-browser-check --new-window "http://localhost:8501/"
-
-echo.
-echo Done.
-echo Keep this Chrome window open while collecting SellerSprite data.
-echo If this is the first time, install/login SellerSprite and Amazon in this Chrome profile.
-echo Profile: %PROFILE_DIR%
-echo.
-pause
+exit /b 0

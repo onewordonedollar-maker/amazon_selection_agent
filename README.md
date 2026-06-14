@@ -16,10 +16,15 @@ Double-click:
 
 The launcher:
 
-1. Starts Streamlit at `http://localhost:8501/`.
-2. Opens the dedicated collection Chrome.
-3. Uses `D:\amazon_selection_agent\chrome_profile` as its profile.
-4. Enables Chrome remote debugging on port `9222`.
+1. On first use, installs a project-local Python runtime in `.runtime/`.
+2. Installs the pinned dependencies from `requirements.txt`.
+3. Starts Streamlit at `http://localhost:8501/`.
+4. Opens the dedicated collection Chrome.
+5. Uses `D:\amazon_selection_agent\chrome_profile` as its profile.
+6. Enables Chrome remote debugging on port `9222`.
+
+The runtime setup is per-project, does not require administrator privileges,
+and no longer depends on the Codex cached Python installation.
 
 First-time setup in that Chrome profile:
 
@@ -78,6 +83,7 @@ The application exports `.xlsx` files. The image column uses Excel's
 The following folders are intentionally not committed:
 
 - `chrome_profile/`: Amazon login and extension state
+- `.runtime/`: project-local Python and installed dependencies
 - Runtime files in `outputs/`, except the validated category mapping
 - Python caches and virtual environments
 
