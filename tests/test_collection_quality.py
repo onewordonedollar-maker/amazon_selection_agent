@@ -2,6 +2,7 @@ import unittest
 from types import SimpleNamespace
 
 from src.collection_quality import (
+    completed_collection_page_count,
     evaluate_sellersprite_collection_quality,
     is_collection_quality_warning,
     is_sellersprite_load_failure,
@@ -21,7 +22,7 @@ def result(products: int, hydrated: int, message: str = "", ok: bool = True):
 
 
 class CollectionQualityTests(unittest.TestCase):
-    def evaluate(self, unique_count: int, results: list):
+    def evaluate(self, unique_count: int, results: list, list_type: str = "Best Sellers"):
         return evaluate_sellersprite_collection_quality(
             unique_count,
             results,
@@ -29,6 +30,7 @@ class CollectionQualityTests(unittest.TestCase):
             expected_products_per_page=50,
             min_products_per_page=45,
             min_products_two_pages=95,
+            list_type=list_type,
         )
 
     def test_complete_46_plus_46_is_warning_not_failure(self):
@@ -66,6 +68,81 @@ class CollectionQualityTests(unittest.TestCase):
         self.assertTrue(ok)
         self.assertFalse(is_collection_quality_warning(message))
         self.assertIn("两页采集正常", message)
+
+
+    def test_new_releases_single_complete_page_is_success(self):
+        ok, message = self.evaluate(
+            23,
+            [result(23, 23)],
+            list_type="New Releases",
+        )
+
+        self.assertTrue(ok)
+        self.assertTrue(is_collection_quality_warning(message))
+
+    def test_new_releases_missing_next_button_after_complete_page_is_success(self):
+        ok, message = self.evaluate(
+            23,
+            [
+                result(23, 23),
+                result(0, 0, "未找到可点击的下一页按钮。", ok=False),
+            ],
+            list_type="New Releases",
+        )
+
+        self.assertTrue(ok)
+        self.assertTrue(is_collection_quality_warning(message))
+
+    def test_new_releases_complete_smaller_second_page_is_success(self):
+        ok, message = self.evaluate(
+            78,
+            [result(46, 46), result(32, 32)],
+            list_type="New Releases",
+        )
+
+        self.assertTrue(ok)
+        self.assertTrue(is_collection_quality_warning(message))
+
+    def test_new_releases_incomplete_plugin_fields_are_failure(self):
+        ok, message = self.evaluate(
+            23,
+            [result(23, 18)],
+            list_type="New Releases",
+        )
+
+        self.assertFalse(ok)
+        self.assertFalse(is_collection_quality_warning(message))
+
+    def test_best_sellers_single_page_remains_failure(self):
+        ok, message = self.evaluate(23, [result(23, 23)])
+
+        self.assertFalse(ok)
+        self.assertFalse(is_collection_quality_warning(message))
+
+    def test_best_sellers_missing_next_button_remains_failure(self):
+        ok, message = self.evaluate(
+            23,
+            [
+                result(23, 23),
+                result(0, 0, "未找到可点击的下一页按钮。", ok=False),
+            ],
+        )
+
+        self.assertFalse(ok)
+        self.assertFalse(is_collection_quality_warning(message))
+
+    def test_completed_page_count_ignores_missing_next_button_diagnostic(self):
+        results = [
+            result(23, 23),
+            result(0, 0, "未找到可点击的下一页按钮。", ok=False),
+        ]
+
+        self.assertEqual(completed_collection_page_count(results), 1)
+
+    def test_completed_page_count_keeps_empty_category_page(self):
+        results = [result(0, 0, EMPTY_MESSAGE)]
+
+        self.assertEqual(completed_collection_page_count(results), 1)
 
 
 if __name__ == "__main__":

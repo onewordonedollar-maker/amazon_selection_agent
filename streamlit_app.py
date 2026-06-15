@@ -35,6 +35,7 @@ from src.chrome_cdp import (
     refresh_sellersprite_cache_pages,
 )
 from src.collection_quality import (
+    completed_collection_page_count,
     evaluate_sellersprite_collection_quality,
     is_collection_quality_warning,
     is_sellersprite_load_failure,
@@ -2321,7 +2322,11 @@ def collect_sellersprite_entry(
     return list(products_by_asin.values()), refresh_results
 
 
-def sellersprite_collection_quality(products: list[Product], refresh_results: list) -> tuple[bool, str]:
+def sellersprite_collection_quality(
+    products: list[Product],
+    refresh_results: list,
+    list_type: str,
+) -> tuple[bool, str]:
     return evaluate_sellersprite_collection_quality(
         len(products),
         refresh_results,
@@ -2329,6 +2334,7 @@ def sellersprite_collection_quality(products: list[Product], refresh_results: li
         expected_products_per_page=SELLERSPRITE_EXPECTED_PRODUCTS_PER_PAGE,
         min_products_per_page=SELLERSPRITE_MIN_PRODUCTS_PER_PAGE,
         min_products_two_pages=SELLERSPRITE_MIN_PRODUCTS_TWO_PAGES,
+        list_type=list_type,
     )
 
 
@@ -2352,7 +2358,7 @@ def collect_sellersprite_entry_with_quality_retry(
         progress_label=progress_label,
         category_path=stable_category_path,
     )
-    best_ok, best_message = sellersprite_collection_quality(best_products, best_results)
+    best_ok, best_message = sellersprite_collection_quality(best_products, best_results, list_type)
     label = progress_label or target_url
     retry_index = 0
     while not best_ok and retry_index < retry_limit:
@@ -2370,7 +2376,7 @@ def collect_sellersprite_entry_with_quality_retry(
             progress_label=f"{label} 重试{retry_index}",
             category_path=stable_category_path,
         )
-        retry_ok, retry_message = sellersprite_collection_quality(retry_products, retry_results)
+        retry_ok, retry_message = sellersprite_collection_quality(retry_products, retry_results, list_type)
         merged_by_asin = {product.asin: product for product in best_products if product.asin}
         for product in retry_products:
             existing = merged_by_asin.get(product.asin)
@@ -2386,7 +2392,7 @@ def collect_sellersprite_entry_with_quality_retry(
         )
         if retry_ok or retry_result_score > best_result_score:
             best_results = retry_results
-        best_ok, best_message = sellersprite_collection_quality(best_products, best_results)
+        best_ok, best_message = sellersprite_collection_quality(best_products, best_results, list_type)
         log(f"{label}: retry {retry_index}/{retry_limit} result: {retry_message}. best: {best_message}.")
     if progress and not best_ok:
         progress(99, f"{best_message}。已保留当前能解析到的产品。")
@@ -2440,8 +2446,9 @@ def collect_sellersprite_batch(
                 products,
                 len(refresh_results),
             )
-    set_batch_progress(100, f"当前入口完成：读取 {len(refresh_results)} 页，原始去重 {len(products)} 条。")
-    return products, quality_ok, quality_message, len(refresh_results)
+    completed_pages = completed_collection_page_count(refresh_results)
+    set_batch_progress(100, f"当前入口完成：读取 {completed_pages} 页，原始去重 {len(products)} 条。")
+    return products, quality_ok, quality_message, completed_pages
 
 
 def resolve_category_seed_urls(selected_paths: list[str], custom_url: str = "") -> list[tuple[str, str]]:
@@ -4673,6 +4680,7 @@ if run:
                 st.session_state.collection_current_seed_label = ""
                 st.session_state.collection_total_raw_count = len(collected_products)
                 update_collection_total_status(collection_total_placeholder)
+                completed_pages = completed_collection_page_count(refresh_results)
                 total_product_count = sum(result.product_count for result in refresh_results)
                 total_hydrated_count = sum(result.hydrated_count for result in refresh_results)
                 total_image_count = sum(result.image_count for result in refresh_results)
@@ -4683,7 +4691,7 @@ if run:
                     f"{total_image_count} images."
                 )
                 st.session_state.last_cache_refresh_message = (
-                    f"本入口采集完成：读取 {len(refresh_results)} 页；页面识别 {total_product_count} 条；"
+                    f"本入口采集完成：读取 {completed_pages} 页；页面识别 {total_product_count} 条；"
                     f"原始去重 {len(collected_products)} 条；卖家精灵字段完整 {total_hydrated_count} 条（销量/FBA/销售额等）。"
                     f"质量判断：{quality_message}"
                 )
@@ -4711,7 +4719,7 @@ if run:
                         "raw": len(collected_products),
                         "quality_ok": quality_ok,
                         "quality_message": quality_message,
-                        "pages": len(refresh_results),
+                        "pages": completed_pages,
                         "failed": not quality_ok and quality_message != EMPTY_NEW_RELEASES_MESSAGE,
                         "warning": is_collection_quality_warning(quality_message),
                         "empty": quality_message == EMPTY_NEW_RELEASES_MESSAGE,
@@ -4721,7 +4729,7 @@ if run:
                     "completed",
                     [(target_label, target_url)],
                 )
-                log(f"SellerSprite plugin collection finished. Parsed {len(collected_products)} unique products from {len(refresh_results)} pages.")
+                log(f"SellerSprite plugin collection finished. Parsed {len(collected_products)} unique products from {completed_pages} pages.")
         for product in collected_products:
             product.selected = False
         if collected_products:
