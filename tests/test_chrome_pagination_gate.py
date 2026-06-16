@@ -8,14 +8,20 @@ from src.chrome_cdp import (
 )
 
 
-def refresh_result(ok: bool, message: str):
+def refresh_result(
+    ok: bool,
+    message: str,
+    source_url: str = "https://www.amazon.com/gp/bestsellers/pet-supplies/3024125011",
+    next_page_url: str = "https://www.amazon.com/Best-Sellers/zgbs/pet-supplies/3024125011?pg=2",
+):
     return ChromeRefreshResult(
         ok=ok,
         product_count=46,
         hydrated_count=46 if ok else 28,
         image_count=46,
-        source_url="https://www.amazon.com/gp/bestsellers/pet-supplies/3024125011",
+        source_url=source_url,
         message=message,
+        next_page_url=next_page_url,
     )
 
 
@@ -42,6 +48,20 @@ class ChromePaginationGateTests(unittest.TestCase):
         self.assertFalse(
             should_advance_to_next_page(
                 refresh_result(True, EMPTY_NEW_RELEASES_MESSAGE),
+                page=1,
+                page_count=2,
+            )
+        )
+
+    def test_new_releases_complete_single_page_without_next_does_not_advance(self):
+        self.assertFalse(
+            should_advance_to_next_page(
+                refresh_result(
+                    True,
+                    "刷新完成。",
+                    source_url="https://www.amazon.com/gp/new-releases/pet-supplies/2975329011",
+                    next_page_url="",
+                ),
                 page=1,
                 page_count=2,
             )

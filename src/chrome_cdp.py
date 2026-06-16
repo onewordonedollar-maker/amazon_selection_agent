@@ -66,6 +66,9 @@ def should_advance_to_next_page(
     page: int,
     page_count: int,
 ) -> bool:
+    kind, _, _ = _rank_category_parts(result.source_url)
+    if kind == "new-releases" and not result.next_page_url:
+        return False
     return bool(
         result.ok
         and result.message != EMPTY_NEW_RELEASES_MESSAGE
