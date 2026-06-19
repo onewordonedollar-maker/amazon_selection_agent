@@ -1,4 +1,5 @@
 ﻿import csv
+import importlib
 import json
 import random
 import re
@@ -27,6 +28,7 @@ from src.category_mapping import (
     clean_category_entries,
     is_legacy_home_path,
 )
+from src import category_selection as category_selection_module
 from src.chrome_cdp import (
     SELLERSPRITE_INCOMPLETE_MESSAGE,
     chrome_debugger_available,
@@ -46,6 +48,10 @@ from src.sellersprite_parser import (
     load_cached_sellersprite_products,
     sellersprite_product_hydrated,
 )
+
+category_selection_module = importlib.reload(category_selection_module)
+category_path_selected = category_selection_module.category_path_selected
+toggle_compact_category_selection = category_selection_module.toggle_compact_category_selection
 
 
 OUTPUT_DIR = Path(__file__).resolve().parent / "outputs"
@@ -410,6 +416,10 @@ def request_stop_collection() -> None:
     log("Stop collection requested from UI.")
 
 
+def close_category_dialog_state() -> None:
+    st.session_state.show_category_dialog = False
+
+
 def prepare_collection_run() -> None:
     clear_stop_collection_flag()
     mark_collection_running()
@@ -481,6 +491,8 @@ def ensure_state():
         st.session_state.confirmed_category_paths = []
     if "show_category_dialog" not in st.session_state:
         st.session_state.show_category_dialog = False
+    if "category_dialog_selected_paths" not in st.session_state:
+        st.session_state.category_dialog_selected_paths = []
     if "last_cache_refresh_message" not in st.session_state:
         st.session_state.last_cache_refresh_message = ""
     if "last_category_mapping_message" not in st.session_state:
@@ -1788,25 +1800,10 @@ def category_widget_key(prefix: str, path: str) -> str:
     return f"{prefix}_{re.sub(r'[^A-Za-z0-9]+', '_', path).strip('_')}"
 
 
-def iter_category_paths(tree: dict | None = None, prefix: str = "", seen: set[int] | None = None):
-    source_tree = display_categories() if tree is None else tree
-    if not isinstance(source_tree, dict) or not source_tree:
-        return
-    seen = seen or set()
-    tree_id = id(source_tree)
-    if tree_id in seen:
-        return
-    seen.add(tree_id)
-    for name, node in source_tree.items():
-        path = f"{prefix} > {name}" if prefix else name
-        yield path
-        yield from iter_category_paths(node.get("children", {}), path, seen)
-
-
 def handle_category_select_all_change():
     selected = bool(st.session_state.get("category_select_all", False))
-    for path in iter_category_paths():
-        st.session_state[category_widget_key("cat_sel", path)] = selected
+    category_tree = display_categories()
+    st.session_state.category_dialog_selected_paths = list(category_tree) if selected else []
 
 
 def category_path_parts(path: str) -> list[str]:
@@ -1843,12 +1840,6 @@ def iter_child_paths(path: str, node: dict):
         yield child_path, child_node
 
 
-def iter_category_branch_paths(path: str, node: dict):
-    yield path
-    for child_path, child_node in iter_child_paths(path, node):
-        yield from iter_category_branch_paths(child_path, child_node)
-
-
 def iter_category_leaf_paths(path: str, node: dict):
     children = list(iter_child_paths(path, node))
     if not children:
@@ -1858,73 +1849,18 @@ def iter_category_leaf_paths(path: str, node: dict):
         yield from iter_category_leaf_paths(child_path, child_node)
 
 
-def set_category_branch_selected(path: str, node: dict, selected: bool):
-    for branch_path in iter_category_branch_paths(path, node):
-        st.session_state[category_widget_key("cat_sel", branch_path)] = selected
-
-
-def set_category_descendants_selected(path: str, node: dict, selected: bool):
-    set_category_branch_selected(path, node, selected)
-
-
-def category_branch_fully_selected(path: str, node: dict) -> bool:
-    if not st.session_state.get(category_widget_key("cat_sel", path), False):
-        return False
-    return all(category_branch_fully_selected(child_path, child_node) for child_path, child_node in iter_child_paths(path, node))
-
-
-def sync_category_ancestors(path: str):
-    parts = category_path_parts(path)
-    for depth in range(len(parts) - 1, 0, -1):
-        parent_path = " > ".join(parts[:depth])
-        parent_node = get_category_node(parent_path)
-        children = list(iter_child_paths(parent_path, parent_node))
-        if not children:
-            continue
-        parent_selected = all(category_branch_fully_selected(child_path, child_node) for child_path, child_node in children)
-        st.session_state[category_widget_key("cat_sel", parent_path)] = parent_selected
-
-
-def sync_category_select_all_state():
-    all_paths = list(iter_category_paths())
-    st.session_state["category_select_all"] = bool(all_paths) and all(
-        st.session_state.get(category_widget_key("cat_sel", path), False) for path in all_paths
+def handle_category_row_select_change(path: str, node: dict):
+    selected = bool(st.session_state.get(category_widget_key("cat_sel", path), False))
+    st.session_state.category_dialog_selected_paths = toggle_compact_category_selection(
+        display_categories(),
+        st.session_state.get("category_dialog_selected_paths", []),
+        path,
+        selected,
     )
 
 
-def handle_category_row_select_change(path: str, node: dict):
-    selected = bool(st.session_state.get(category_widget_key("cat_sel", path), False))
-    set_category_branch_selected(path, node, selected)
-    sync_category_ancestors(path)
-    sync_category_select_all_state()
-
-
 def selected_category_paths_from_state(tree: dict | None = None, prefix: str = "", seen: set[int] | None = None) -> list[str]:
-    source_tree = display_categories() if tree is None else tree
-    if not isinstance(source_tree, dict) or not source_tree:
-        return []
-    seen = seen or set()
-    tree_id = id(source_tree)
-    if tree_id in seen:
-        return []
-    seen.add(tree_id)
-    selected_paths = []
-    selected_seen = set()
-    for name, node in source_tree.items():
-        path = f"{prefix} > {name}" if prefix else name
-        if st.session_state.get(category_widget_key("cat_sel", path), False):
-            # A checked parent represents its entire branch in the dialog.
-            # Confirmation compacts these paths before persisting them.
-            for branch_path in iter_category_branch_paths(path, node):
-                if branch_path not in selected_seen:
-                    selected_paths.append(branch_path)
-                    selected_seen.add(branch_path)
-            continue
-        for branch_path in selected_category_paths_from_state(node.get("children", {}), path, seen):
-            if branch_path not in selected_seen:
-                selected_paths.append(branch_path)
-                selected_seen.add(branch_path)
-    return selected_paths
+    return compact_category_paths(st.session_state.get("category_dialog_selected_paths", []))
 
 
 def render_category_row(path: str, name: str, node: dict, depth: int, selected_paths: list[str], all_categories: bool, confirmed: set[str], query: str):
@@ -1934,15 +1870,11 @@ def render_category_row(path: str, name: str, node: dict, depth: int, selected_p
     select_key = category_widget_key("cat_sel", path)
     if expand_key not in st.session_state:
         st.session_state[expand_key] = False
-    if select_key not in st.session_state:
-        selected_by_confirmed_parent = any(
-            path == confirmed_path or path.startswith(f"{confirmed_path} > ")
-            for confirmed_path in confirmed
-        )
-        st.session_state[select_key] = all_categories or selected_by_confirmed_parent
-
-    if all_categories:
-        st.session_state[select_key] = True
+    selected = category_path_selected(
+        path,
+        st.session_state.get("category_dialog_selected_paths", []),
+    )
+    st.session_state[select_key] = selected
 
     indent = max(0.001, min(depth, 4) * 0.055)
     label_width = max(0.52, 0.72 - indent)
@@ -1998,23 +1930,30 @@ def render_category_row(path: str, name: str, node: dict, depth: int, selected_p
 
 def render_category_tree(query: str = ""):
     selected_paths = []
+    category_tree = display_categories()
+    root_paths = list(category_tree)
+    st.session_state["category_select_all"] = bool(root_paths) and all(
+        category_path_selected(path, st.session_state.get("category_dialog_selected_paths", []))
+        for path in root_paths
+    )
     all_categories = st.checkbox(
         T["all_categories"],
         key="category_select_all",
         on_change=handle_category_select_all_change,
     )
     confirmed = set(st.session_state.confirmed_category_paths)
-    for main, main_node in display_categories().items():
+    for main, main_node in category_tree.items():
         if not category_matches_filter(main, main_node, query):
             continue
         render_category_row(main, main, main_node, 0, selected_paths, all_categories, confirmed, query)
-    return selected_category_paths_from_state()
+    return selected_category_paths_from_state(category_tree)
 
 
 @st.dialog("选择类目", width="large")
 def render_category_dialog():
     if st.session_state.get("category_clear_requested"):
         st.session_state.confirmed_category_paths = []
+        st.session_state.category_dialog_selected_paths = []
         for key in list(st.session_state.keys()):
             if key.startswith(("main_", "mid_", "leaf_", "cat_sel_", "cat_exp_")) or key == "category_select_all":
                 del st.session_state[key]
@@ -2048,10 +1987,11 @@ def render_category_dialog():
     st.markdown("<span class='category-footer-anchor'></span>", unsafe_allow_html=True)
     spacer_left, cancel_col, spacer_mid, confirm_col = st.columns([0.72, 0.10, 0.02, 0.16])
     if cancel_col.button("取消", use_container_width=True):
+        st.session_state.category_dialog_selected_paths = list(st.session_state.confirmed_category_paths)
         st.session_state.show_category_dialog = False
         st.rerun()
     if confirm_col.button("确认选择", type="primary", use_container_width=True):
-        st.session_state.confirmed_category_paths = compact_category_paths(selected_paths)
+        st.session_state.confirmed_category_paths = compact_category_paths(st.session_state.category_dialog_selected_paths)
         st.session_state.show_category_dialog = False
         st.rerun()
 
@@ -4364,6 +4304,7 @@ with st.container(border=True):
                 use_container_width=True,
                 disabled=collection_locked,
             ):
+                st.session_state.category_dialog_selected_paths = list(st.session_state.confirmed_category_paths)
                 st.session_state.show_category_dialog = True
                 st.rerun()
         with category_count_col:
@@ -4423,6 +4364,7 @@ with st.container(border=True):
             key="load_history_record_button",
             use_container_width=True,
             disabled=collection_locked,
+            on_click=close_category_dialog_state,
         )
     else:
         selected_history_label = ""
@@ -4519,6 +4461,7 @@ with st.container(border=True):
         key="load_last_raw_button",
         use_container_width=True,
         disabled=collection_locked,
+        on_click=close_category_dialog_state,
     )
     collection_total_placeholder = st.empty()
     update_collection_total_status(collection_total_placeholder)
