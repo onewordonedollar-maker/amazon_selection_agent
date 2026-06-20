@@ -2110,7 +2110,7 @@ def render_category_tree(query: str = ""):
     return selected_category_paths_from_state(category_tree)
 
 
-@st.dialog("选择类目", width="large")
+@st.dialog("选择类目", width="large", on_dismiss=close_category_dialog_state)
 def render_category_dialog():
     if st.session_state.get("category_clear_requested"):
         st.session_state.confirmed_category_paths = []
@@ -2120,6 +2120,7 @@ def render_category_dialog():
                 del st.session_state[key]
         st.session_state.category_clear_requested = False
 
+    st.markdown("<span class='category-dialog-grid-anchor'></span>", unsafe_allow_html=True)
     left_panel, right_panel = st.columns([0.58, 0.42], gap="medium", vertical_alignment="top")
     with left_panel:
         query = st.text_input(
@@ -2344,6 +2345,7 @@ def render_tile_cards(products):
         columns = st.columns(4, gap="medium")
         for column, product in zip(columns, products[start:start + 4]):
             with column:
+                st.markdown("<span class='tile-card-select-anchor'></span>", unsafe_allow_html=True)
                 st.checkbox(
                     "选择产品",
                     key=f"row_include_{product.asin}",
@@ -2987,34 +2989,26 @@ def collect_sellersprite_batch_from_seeds(
 
 def render_cards(products):
     st.markdown("<span class='seller-list-frame seller-table-header-anchor'></span>", unsafe_allow_html=True)
-    header_left, header_body = st.columns([0.035, 0.965], gap=None, vertical_alignment="top")
-    with header_left:
-        st.markdown("<div class='seller-select-header'></div>", unsafe_allow_html=True)
-    with header_body:
-        st.markdown(
-            """
-            <div class="seller-header">
-                <div>#</div><div>产品信息 <span>数据解释</span></div><div>大类BSR</div><div>销量趋势(父)</div>
-                <div>销量(父)<br>增长率</div><div>销售额</div><div>子体销量<br>子体销售额</div><div>变体数</div>
-                <div>价格<br>Q&A</div><div>评分数<br>月新增</div><div>评分<br>留评率</div><div>FBA<br>毛利率</div>
-                <div>上架时间</div><div>配送<br>买家运费</div><div>操作</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    st.markdown(
+        """
+        <div class="seller-header">
+            <div>#</div><div>产品信息 <span>数据解释</span></div><div>大类BSR</div><div>销量趋势(父)</div>
+            <div>销量(父)<br>增长率</div><div>销售额</div><div>子体销量<br>子体销售额</div><div>变体数</div>
+            <div>价格<br>Q&A</div><div>评分数<br>月新增</div><div>评分<br>留评率</div><div>FBA<br>毛利率</div>
+            <div>上架时间</div><div>配送<br>买家运费</div><div>操作</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     for product in products:
-        row_select, row_body = st.columns([0.035, 0.965], gap=None, vertical_alignment="top")
-        with row_select:
-            st.markdown("<div class='seller-select-cell'>", unsafe_allow_html=True)
-            product.selected = st.checkbox(
-                "Include in export",
-                value=product.selected,
-                key=f"row_include_{product.asin}",
-                label_visibility="collapsed",
-            )
-            st.markdown("</div>", unsafe_allow_html=True)
-        with row_body:
-            st.markdown(seller_product_html(product), unsafe_allow_html=True)
+        st.markdown("<span class='product-card-select-anchor'></span>", unsafe_allow_html=True)
+        product.selected = st.checkbox(
+            "Include in export",
+            value=product.selected,
+            key=f"row_include_{product.asin}",
+            label_visibility="collapsed",
+        )
+        st.markdown(seller_product_html(product), unsafe_allow_html=True)
         st.markdown("<div class='seller-row-space'></div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -3096,6 +3090,8 @@ with header_right:
         "Language / 语言",
         ["中文", "English"],
         horizontal=True,
+        key="ui_language_selector",
+        on_change=close_category_dialog_state,
         label_visibility="collapsed",
         disabled=collection_locked,
     )
@@ -3204,6 +3200,17 @@ st.markdown(
     }
     div[data-testid="stVerticalBlockBorderWrapper"]:has(.setup-panel-anchor) hr {
         margin: 0.35rem 0 !important;
+    }
+    body:not(:has(div[data-testid="stDialog"])) div[data-testid="stApp"],
+    body:not(:has(div[data-testid="stDialog"])) [data-testid="stAppViewContainer"] {
+        height: auto !important;
+        min-height: 100vh !important;
+        overflow-y: visible !important;
+    }
+    body:not(:has(div[data-testid="stDialog"])) section[data-testid="stMain"] {
+        height: auto !important;
+        min-height: 100vh !important;
+        overflow-y: visible !important;
     }
     html:has(div[data-testid="stDialog"]),
     body:has(div[data-testid="stDialog"]) {
@@ -3686,6 +3693,16 @@ st.markdown(
         min-height: 92px;
         padding: 8px 0 12px;
     }
+    div[data-testid="stDialog"] div[data-testid="stElementContainer"]:has(.category-dialog-grid-anchor) {
+        display: none;
+    }
+    div[data-testid="stDialog"] div[data-testid="stElementContainer"]:has(.category-dialog-grid-anchor) + div[data-testid="stHorizontalBlock"] {
+        align-items: flex-start !important;
+        max-height: max(220px, calc(100dvh - 250px)) !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        scrollbar-gutter: stable;
+    }
     .category-dialog-footer {
         background: #ffffff;
         border-top: 1px solid #e7ebf1;
@@ -3869,26 +3886,6 @@ st.markdown(
     .seller-row-space {
         height: 10px;
     }
-    .seller-select-header {
-        background: #f6f7f9;
-        border-top: 0;
-        border-bottom: 0;
-        border-left: 0;
-        border-right: 0;
-        box-shadow: none;
-        min-height: 58px;
-        position: static;
-    }
-    .seller-select-cell {
-        align-items: flex-start;
-        background: transparent;
-        border: 0;
-        border-radius: 0;
-        display: flex;
-        min-height: 178px;
-        padding: 18px 0 0 0;
-        justify-content: center;
-    }
     .seller-header {
         display: grid;
         grid-template-columns: 30px 254px 56px 92px 68px 78px 82px 46px 62px 64px 52px 58px 70px 56px 32px;
@@ -3924,6 +3921,7 @@ st.markdown(
         border-radius: 3px;
         box-shadow: 0 1px 1px rgba(15, 23, 42, .02);
         padding: 12px 10px 9px;
+        position: relative;
         transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
     }
     .seller-row:hover {
@@ -3941,12 +3939,45 @@ st.markdown(
         color: #2a303b;
         min-height: 510px;
         padding: 12px 12px 14px;
+        position: relative;
         transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
     }
     .tile-card:hover {
         border-color: #dce3ec;
         box-shadow: 0 8px 18px rgba(15, 23, 42, .07);
         transform: translateY(-1px);
+    }
+    div[data-testid="stElementContainer"]:has(.product-card-select-anchor),
+    div[data-testid="stElementContainer"]:has(.tile-card-select-anchor) {
+        display: none;
+    }
+    div[data-testid="stElementContainer"]:has(.product-card-select-anchor) + div[data-testid="stCheckbox"],
+    div[data-testid="stElementContainer"]:has(.product-card-select-anchor) + div[data-testid="stElementContainer"]:has(div[data-testid="stCheckbox"]) {
+        margin: 0 0 -32px 10px !important;
+        position: relative !important;
+        transform: translateY(12px);
+        width: 28px !important;
+        z-index: 12 !important;
+    }
+    div[data-testid="stElementContainer"]:has(.tile-card-select-anchor) + div[data-testid="stCheckbox"],
+    div[data-testid="stElementContainer"]:has(.tile-card-select-anchor) + div[data-testid="stElementContainer"]:has(div[data-testid="stCheckbox"]) {
+        margin: 0 0 -30px 10px !important;
+        position: relative !important;
+        transform: translateY(11px);
+        width: 28px !important;
+        z-index: 12 !important;
+    }
+    div[data-testid="stElementContainer"]:has(.product-card-select-anchor) + div[data-testid="stCheckbox"] label,
+    div[data-testid="stElementContainer"]:has(.product-card-select-anchor) + div[data-testid="stElementContainer"] div[data-testid="stCheckbox"] label,
+    div[data-testid="stElementContainer"]:has(.tile-card-select-anchor) + div[data-testid="stCheckbox"] label,
+    div[data-testid="stElementContainer"]:has(.tile-card-select-anchor) + div[data-testid="stElementContainer"] div[data-testid="stCheckbox"] label {
+        min-height: 24px !important;
+    }
+    div[data-testid="stElementContainer"]:has(.product-card-select-anchor) + div[data-testid="stCheckbox"] label > div,
+    div[data-testid="stElementContainer"]:has(.product-card-select-anchor) + div[data-testid="stElementContainer"] div[data-testid="stCheckbox"] label > div,
+    div[data-testid="stElementContainer"]:has(.tile-card-select-anchor) + div[data-testid="stCheckbox"] label > div,
+    div[data-testid="stElementContainer"]:has(.tile-card-select-anchor) + div[data-testid="stElementContainer"] div[data-testid="stCheckbox"] label > div {
+        margin: 0 !important;
     }
     .tile-image-wrap {
         align-items: center;
@@ -4659,8 +4690,7 @@ st.markdown(
         box-shadow: 0 4px 12px rgba(16, 24, 40, .045);
         top: 80px !important;
     }
-    .seller-header,
-    .seller-select-header {
+    .seller-header {
         background: #eef1f5;
         border-color: #dfe4eb;
         color: #596474;
@@ -4827,15 +4857,15 @@ st.markdown(
             max-height: calc(100dvh - 12px) !important;
             width: min(96vw, 1320px) !important;
         }
-        div[data-testid="stDialog"] div[data-testid="stHorizontalBlock"] {
+        div[data-testid="stDialog"] div[data-testid="stElementContainer"]:has(.category-footer-anchor) + div[data-testid="stHorizontalBlock"] {
             flex-direction: row !important;
             flex-wrap: nowrap !important;
             gap: 8px !important;
         }
-        div[data-testid="stDialog"] div[data-testid="stHorizontalBlock"] > div {
+        div[data-testid="stDialog"] div[data-testid="stElementContainer"]:has(.category-footer-anchor) + div[data-testid="stHorizontalBlock"] > div {
             min-width: 0 !important;
         }
-        div[data-testid="stDialog"] div[data-testid="stHorizontalBlock"] button {
+        div[data-testid="stDialog"] div[data-testid="stElementContainer"]:has(.category-footer-anchor) + div[data-testid="stHorizontalBlock"] button {
             min-width: 0 !important;
         }
         div[data-testid="stDialog"] .category-tree-label {
@@ -4871,6 +4901,8 @@ with st.container(border=True):
             T["list_type"],
             ["New Releases", "Best Sellers"],
             horizontal=True,
+            key="list_type_selector",
+            on_change=close_category_dialog_state,
             disabled=collection_locked,
         )
     with setup_category:
@@ -4894,6 +4926,8 @@ with st.container(border=True):
             "站点",
             ["美国站"],
             index=0,
+            key="marketplace_selector",
+            on_change=close_category_dialog_state,
             disabled=collection_locked,
         )
 

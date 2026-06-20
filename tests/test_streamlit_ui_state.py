@@ -101,6 +101,20 @@ class StreamlitUiStateTests(unittest.TestCase):
         self.assertNotIn("level-corner", tile_html)
         self.assertNotIn("tag tag-", tile_html)
 
+    def test_product_selection_checkbox_is_inside_list_and_tile_cards(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+        list_renderer = source[source.index("def render_cards"):source.index("def set_result_page")]
+        tile_renderer = source[source.index("def render_tile_cards"):source.index("def collect_sellersprite_products")]
+
+        self.assertIn("product-card-select-anchor", list_renderer)
+        self.assertIn("tile-card-select-anchor", tile_renderer)
+        self.assertNotIn("seller-select-cell", list_renderer)
+        self.assertNotIn("row_select, row_body", list_renderer)
+        self.assertIn("div[data-testid=\"stElementContainer\"]:has(.product-card-select-anchor) + div[data-testid=\"stCheckbox\"]", source)
+        self.assertIn("div[data-testid=\"stElementContainer\"]:has(.tile-card-select-anchor) + div[data-testid=\"stCheckbox\"]", source)
+        self.assertIn(".seller-list-frame {", source)
+        self.assertIn("padding: 0 0 6px;", source)
+
     def test_result_view_mode_uses_compact_segmented_buttons(self):
         source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
         result_area = source[source.index("with tab_cards:"):source.index("with tab_table:")]
@@ -139,6 +153,33 @@ class StreamlitUiStateTests(unittest.TestCase):
         self.assertIn("download_label", helper)
         self.assertIn("else:", helper)
         self.assertLess(helper.index("container.download_button"), helper.index("else:"))
+
+    def test_general_controls_close_stale_category_dialog_before_rerun(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+
+        self.assertIn("def close_category_dialog_state", source)
+        self.assertIn('@st.dialog("选择类目", width="large", on_dismiss=close_category_dialog_state)', source)
+        self.assertIn('key="ui_language_selector"', source)
+        self.assertIn('key="list_type_selector"', source)
+        self.assertIn('key="marketplace_selector"', source)
+        self.assertGreaterEqual(source.count("on_change=close_category_dialog_state"), 3)
+
+    def test_category_dialog_footer_has_scoped_layout_and_scroll_contract(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+
+        self.assertIn("category-dialog-grid-anchor", source)
+        self.assertIn("category-footer-anchor", source)
+        self.assertIn("max-height: max(220px, calc(100dvh - 250px))", source)
+        self.assertIn("overflow-y: auto !important", source)
+        self.assertNotIn('div[data-testid="stDialog"] div[data-testid="stHorizontalBlock"] {', source)
+
+    def test_page_scroll_is_not_locked_when_category_dialog_is_closed(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+
+        self.assertIn('body:not(:has(div[data-testid="stDialog"])) [data-testid="stAppViewContainer"]', source)
+        self.assertIn('body:not(:has(div[data-testid="stDialog"])) section[data-testid="stMain"]', source)
+        self.assertIn("overflow-y: visible !important", source)
+        self.assertIn('body:has(div[data-testid="stDialog"]) [data-testid="stAppViewContainer"]', source)
 
 
 if __name__ == "__main__":
