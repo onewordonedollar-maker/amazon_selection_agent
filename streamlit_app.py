@@ -432,6 +432,10 @@ def reset_result_page() -> None:
     st.session_state.result_current_page = 1
 
 
+def set_result_view_mode(mode: str) -> None:
+    st.session_state.result_view_mode = mode
+
+
 def handle_result_page_size_change() -> None:
     reset_result_page()
 
@@ -540,7 +544,9 @@ def ensure_state():
     if "result_page_jump" not in st.session_state:
         st.session_state.result_page_jump = 1
     if "result_export_scope" not in st.session_state:
-        st.session_state.result_export_scope = "已勾选"
+        st.session_state.result_export_scope = "导出已勾选"
+    if "result_view_mode" not in st.session_state:
+        st.session_state.result_view_mode = "列表"
     if "select_current_page_products" not in st.session_state:
         st.session_state.select_current_page_products = False
     if "collection_total_raw_count" not in st.session_state:
@@ -694,9 +700,9 @@ def handle_select_current_page_products_change(products: list["Product"]):
 
 
 def export_products_for_scope(products: list["Product"], current_page_products: list["Product"], scope: str) -> list["Product"]:
-    if scope == "当前页":
+    if scope in {"当前页", "导出当前页"}:
         return current_page_products
-    if scope == "全部筛选结果":
+    if scope in {"全部筛选结果", "导出全部结果"}:
         return products
     return [product for product in products if product.selected]
 
@@ -1892,21 +1898,29 @@ def render_lazy_export_button(
     signature = prepared_export_signature(products, file_name, file_format)
     state_key = f"prepared_export_{key}"
     prepared = st.session_state.get(state_key)
-    if container.button(label, key=f"prepare_export_{key}", disabled=disabled, use_container_width=use_container_width):
-        prepared = {
-            "signature": signature,
-            "data": export_bytes_for_format(products, file_format),
-        }
-        st.session_state[state_key] = prepared
     if prepared and prepared.get("signature") == signature:
+        download_label = f"下载{label.replace('生成', '')}" if label.startswith("生成") else label.replace("Prepare", "Download")
         container.download_button(
-            f"下载{label.replace('生成', '')}",
+            download_label,
             data=prepared["data"],
             file_name=file_name,
             mime=export_mime_for_format(file_format),
             use_container_width=use_container_width,
             key=f"download_export_{key}",
         )
+    else:
+        prepare_clicked = container.button(
+            label,
+            key=f"prepare_export_{key}",
+            disabled=disabled,
+            use_container_width=use_container_width,
+        )
+    if not (prepared and prepared.get("signature") == signature) and prepare_clicked:
+        prepared = {
+            "signature": signature,
+            "data": export_bytes_for_format(products, file_format),
+        }
+        st.session_state[state_key] = prepared
 
 
 def level_badge(level: str):
@@ -2274,6 +2288,70 @@ def seller_product_html(product: Product) -> str:
         </div>
     </div>
     """
+
+
+def product_tile_html(product: Product) -> str:
+    title = escape(product.title)
+    asin = escape(product.asin)
+    brand = escape(product.brand or "-")
+    seller_name = escape(product.seller_name or product.brand or "-")
+    image_url = escape(product.image_url or fake_image(product.asin))
+    amazon_url = escape(product.amazon_url or f"https://www.amazon.com/dp/{product.asin}")
+    bsr_rank = getattr(product, "bsr_rank", 0) or product.rank
+    sub_rank = getattr(product, "sub_rank", 0)
+    bsr_category = escape(getattr(product, "bsr_category", "") or product.category_path.split(" > ")[0])
+    sub_category = escape(getattr(product, "sub_category", "") or product.category_path.split(" > ")[-1])
+    monthly_bought = _display_int(product.monthly_bought, "+")
+    child_sales_label = getattr(product, "child_monthly_sales_label", "")
+    child_sales = child_sales_label or _display_int(getattr(product, "child_monthly_sales", 0), "+")
+    sales_amount_value = getattr(product, "sales_amount", 0)
+    sales_amount = "-" if not sales_amount_value else f"${sales_amount_value:,.0f}"
+    delivery = escape(product.delivery or product.prime_fba or "-")
+    seller_count = _display_int(getattr(product, "seller_count", 0))
+    rating = "-" if not product.rating else f"{product.rating:.1f}"
+    review_count = "-" if not product.review_count else f"{product.review_count:,}"
+    rating_review_label = f"{rating}/{review_count}"
+    launched_at = escape(str(_display_dash(product.launched_at)))
+    return f"""
+    <div class="tile-card">
+        <div class="tile-image-wrap">
+            <img src="{image_url}" alt="{title}" />
+        </div>
+        <div class="tile-title" title="{title}">{title}</div>
+        <div class="tile-asin">ASIN: <strong>{asin}</strong><button type="button" class="copy-icon" data-copy-value="{asin}" title="复制 ASIN">⧉</button><a class="mini-link" href="{amazon_url}" target="_blank" rel="noopener noreferrer" title="打开 Amazon DP 链接">↗</a></div>
+        <div class="tile-line">卖家: <strong>{seller_name}</strong> <span class="tile-fulfillment">{delivery}</span><span class="tile-seller-count">卖家: {seller_count}</span></div>
+        <div class="tile-line">品牌: <strong>{brand}</strong><button type="button" class="copy-icon" data-copy-value="{brand}" title="复制品牌">⧉</button></div>
+        <div class="tile-rank-block">
+            <div><span class="tile-rank-pill">#{_display_int(bsr_rank)}</span> in {bsr_category}</div>
+            <div><span class="tile-rank-pill">#{_display_int(sub_rank) if sub_rank else "-"}</span> in {sub_category}</div>
+        </div>
+        <div class="tile-stats">
+            <div>销量(父): <strong>{monthly_bought}</strong></div>
+            <div>子体销量: <strong>{child_sales}</strong></div>
+            <div>销售额: <strong>{sales_amount}</strong></div>
+            <div>变体数: <strong>{_display_dash(product.variant_count)}</strong></div>
+            <div>价格: <strong>{_display_money(product.price)}</strong></div>
+            <div>评分/评分数: <strong>{rating_review_label}</strong></div>
+            <div class="tile-wide">上架时间: <strong>{launched_at}</strong></div>
+        </div>
+    </div>
+    """
+
+
+def render_tile_cards(products):
+    st.markdown("<div class='tile-grid-frame'>", unsafe_allow_html=True)
+    for start in range(0, len(products), 4):
+        columns = st.columns(4, gap="medium")
+        for column, product in zip(columns, products[start:start + 4]):
+            with column:
+                st.checkbox(
+                    "选择产品",
+                    key=f"row_include_{product.asin}",
+                    value=product.selected,
+                    label_visibility="collapsed",
+                )
+                st.markdown(product_tile_html(product), unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def collect_sellersprite_products(list_type, filters, category_path: str = "") -> list[Product]:
@@ -3189,6 +3267,90 @@ st.markdown(
         top: 0 !important;
         z-index: 80 !important;
     }
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-anchor) + div[data-testid="stElementContainer"]:has(.cards-toolbar-actions-anchor),
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-actions-anchor),
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-controls-anchor),
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-sort-anchor) {
+        display: none;
+    }
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-actions-anchor) + div[data-testid="stLayoutWrapper"],
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-actions-anchor) + div[data-testid="stHorizontalBlock"],
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-controls-anchor) + div[data-testid="stLayoutWrapper"],
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-controls-anchor) + div[data-testid="stHorizontalBlock"],
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-sort-anchor) + div[data-testid="stLayoutWrapper"],
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-sort-anchor) + div[data-testid="stHorizontalBlock"] {
+        background: #f4f5f7 !important;
+        margin-bottom: 0 !important;
+        margin-top: 0 !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        position: sticky !important;
+        z-index: 80 !important;
+    }
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-actions-anchor) + div[data-testid="stLayoutWrapper"],
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-actions-anchor) + div[data-testid="stHorizontalBlock"] {
+        padding-top: 4px !important;
+        padding-bottom: 0 !important;
+        top: 0 !important;
+    }
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-controls-anchor) + div[data-testid="stLayoutWrapper"],
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-controls-anchor) + div[data-testid="stHorizontalBlock"],
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-sort-anchor) + div[data-testid="stLayoutWrapper"],
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-sort-anchor) + div[data-testid="stHorizontalBlock"] {
+        padding-top: 0 !important;
+        padding-bottom: 4px !important;
+        top: 40px !important;
+    }
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stButton"] button,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-actions-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stButton"] button,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-actions-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-controls-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stButton"] button,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-controls-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-sort-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stButton"] button,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-sort-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-actions-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-actions-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-controls-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-controls-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-sort-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-sort-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stSelectbox"] div[data-baseweb="select"] > div {
+        min-height: 36px !important;
+        height: 36px !important;
+    }
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stButton"] button,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
+        border-radius: 7px !important;
+        padding: 0 10px !important;
+        white-space: nowrap !important;
+    }
+    div[data-testid="stElementContainer"]:has(.result-view-toggle-anchor) {
+        display: none;
+    }
+    div[data-testid="stElementContainer"]:has(.result-view-toggle-anchor) + div[data-testid="stHorizontalBlock"] {
+        align-items: center !important;
+        background: #ffffff;
+        border: 1px solid #d8dee8;
+        border-radius: 8px;
+        gap: 2px !important;
+        min-width: 92px;
+        padding: 2px !important;
+    }
+    div[data-testid="stElementContainer"]:has(.result-view-toggle-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="column"] {
+        padding: 0 !important;
+    }
+    div[data-testid="stElementContainer"]:has(.result-view-toggle-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
+        border: 0 !important;
+        border-radius: 6px !important;
+        box-shadow: none !important;
+        font-size: 13px !important;
+        font-weight: 700 !important;
+        height: 30px !important;
+        min-height: 30px !important;
+        padding: 0 6px !important;
+    }
     div[data-testid="stElementContainer"]:has(.toolbar-spacer) {
         display: none;
     }
@@ -3205,7 +3367,7 @@ st.markdown(
         box-shadow: 0 2px 4px rgba(15, 23, 42, .08);
         margin-top: 0 !important;
         position: sticky !important;
-        top: 56px !important;
+        top: 80px !important;
         z-index: 79 !important;
     }
     div[data-testid="stPopover"] button {
@@ -3768,6 +3930,106 @@ st.markdown(
         border-color: #e2e7ef;
         box-shadow: 0 4px 12px rgba(15, 23, 42, .04);
     }
+    .tile-grid-frame {
+        margin-top: 4px;
+    }
+    .tile-card {
+        background: #ffffff;
+        border: 1px solid #e7ebf1;
+        border-radius: 4px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, .03);
+        color: #2a303b;
+        min-height: 510px;
+        padding: 12px 12px 14px;
+        transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+    }
+    .tile-card:hover {
+        border-color: #dce3ec;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, .07);
+        transform: translateY(-1px);
+    }
+    .tile-image-wrap {
+        align-items: center;
+        display: flex;
+        height: 210px;
+        justify-content: center;
+        margin-bottom: 8px;
+    }
+    .tile-image-wrap img {
+        height: 200px;
+        max-width: 100%;
+        object-fit: contain;
+    }
+    .tile-title {
+        color: #172033;
+        display: -webkit-box;
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.35;
+        min-height: 38px;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+    }
+    .tile-asin,
+    .tile-line {
+        color: #707987;
+        font-size: 13px;
+        line-height: 1.65;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .tile-asin strong,
+    .tile-line strong,
+    .tile-stats strong {
+        color: #222938;
+        font-weight: 700;
+    }
+    .tile-fulfillment,
+    .tile-seller-count {
+        background: #fff1dc;
+        border-radius: 5px;
+        color: #ff7a1a;
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1;
+        margin-left: 6px;
+        padding: 5px 6px;
+    }
+    .tile-rank-block {
+        border-bottom: 1px dashed #e8edf3;
+        border-top: 1px solid #eef2f6;
+        color: #4f5b6b;
+        font-size: 13px;
+        line-height: 1.8;
+        margin: 10px -12px 0;
+        padding: 9px 12px;
+    }
+    .tile-rank-pill {
+        background: #ff8617;
+        border-radius: 5px;
+        color: #ffffff;
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 800;
+        line-height: 1;
+        margin-right: 6px;
+        padding: 5px 7px;
+    }
+    .tile-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 7px 14px;
+        color: #7a828e;
+        font-size: 13px;
+        line-height: 1.45;
+        padding-top: 11px;
+    }
+    .tile-stats .tile-wide {
+        grid-column: 1 / -1;
+    }
     .seller-main {
         display: grid;
         grid-template-columns: 30px 254px 56px 92px 68px 78px 82px 46px 62px 64px 52px 58px 70px 56px 32px;
@@ -4311,11 +4573,91 @@ st.markdown(
         box-shadow: 0 5px 14px rgba(16, 24, 40, .055);
         padding: 7px 0 6px !important;
     }
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-actions-anchor),
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-controls-anchor),
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-sort-anchor) {
+        display: none;
+    }
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-actions-anchor) + div[data-testid="stLayoutWrapper"],
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-actions-anchor) + div[data-testid="stHorizontalBlock"],
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-controls-anchor) + div[data-testid="stLayoutWrapper"],
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-controls-anchor) + div[data-testid="stHorizontalBlock"],
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-sort-anchor) + div[data-testid="stLayoutWrapper"],
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-sort-anchor) + div[data-testid="stHorizontalBlock"] {
+        background: rgba(242, 244, 247, .96) !important;
+        margin-bottom: 0 !important;
+        margin-top: 0 !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        position: sticky !important;
+        z-index: 80 !important;
+    }
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-actions-anchor) + div[data-testid="stLayoutWrapper"],
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-actions-anchor) + div[data-testid="stHorizontalBlock"] {
+        padding-top: 4px !important;
+        padding-bottom: 0 !important;
+        top: 0 !important;
+    }
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-controls-anchor) + div[data-testid="stLayoutWrapper"],
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-controls-anchor) + div[data-testid="stHorizontalBlock"],
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-sort-anchor) + div[data-testid="stLayoutWrapper"],
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-sort-anchor) + div[data-testid="stHorizontalBlock"] {
+        border-bottom: 1px solid var(--line);
+        box-shadow: 0 5px 14px rgba(16, 24, 40, .055);
+        padding-top: 0 !important;
+        padding-bottom: 4px !important;
+        top: 40px !important;
+    }
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stButton"] button,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-actions-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stButton"] button,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-actions-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-controls-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stButton"] button,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-controls-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-sort-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stButton"] button,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-sort-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-actions-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-actions-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-controls-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-controls-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-sort-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+    div[data-testid="stElementContainer"]:has(.cards-toolbar-sort-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stSelectbox"] div[data-baseweb="select"] > div {
+        min-height: 36px !important;
+        height: 36px !important;
+    }
+    div[data-testid="stElementContainer"]:has(.result-view-toggle-anchor) {
+        display: none;
+    }
+    div[data-testid="stElementContainer"]:has(.result-view-toggle-anchor) + div[data-testid="stHorizontalBlock"] {
+        align-items: center !important;
+        background: #ffffff;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        gap: 2px !important;
+        min-width: 92px;
+        padding: 2px !important;
+    }
+    div[data-testid="stElementContainer"]:has(.result-view-toggle-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="column"] {
+        padding: 0 !important;
+    }
+    div[data-testid="stElementContainer"]:has(.result-view-toggle-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
+        border: 0 !important;
+        border-radius: 6px !important;
+        box-shadow: none !important;
+        font-size: 13px !important;
+        font-weight: 700 !important;
+        height: 30px !important;
+        min-height: 30px !important;
+        padding: 0 6px !important;
+    }
     div[data-testid="stElementContainer"]:has(.seller-table-header-anchor) + div[data-testid="stLayoutWrapper"],
     div[data-testid="stElementContainer"]:has(.seller-table-header-anchor) + div[data-testid="stHorizontalBlock"] {
         background: #eef1f5 !important;
         border-bottom: 1px solid #dce2ea;
         box-shadow: 0 4px 12px rgba(16, 24, 40, .045);
+        top: 80px !important;
     }
     .seller-header,
     .seller-select-header {
@@ -5048,6 +5390,8 @@ current_result_page = clamp_page(st.session_state.get("result_current_page", 1),
 st.session_state.result_current_page = current_result_page
 st.session_state.result_page_jump = current_result_page
 current_page_products = page_slice(products, current_result_page, current_page_size)
+if st.session_state.get("result_view_mode") not in ["列表", "平铺"]:
+    st.session_state.result_view_mode = "列表"
 
 if st.session_state.last_collection_summary:
     if products:
@@ -5076,7 +5420,8 @@ with tab_cards:
     else:
         selected_products = [p for p in products if p.selected]
         st.markdown("<span class='cards-toolbar-anchor'></span>", unsafe_allow_html=True)
-        toolbar = st.columns([0.45, 1.05, 1.0, 0.9, 1.05, 1.25, 1.35, 0.85, 1.05, 0.9, 0.75], vertical_alignment="center")
+        st.markdown("<span class='cards-toolbar-actions-anchor'></span>", unsafe_allow_html=True)
+        actions_toolbar = st.columns([0.24, 0.78, 0.86, 0.7, 0.82, 0.8, 0.8, 3.0], vertical_alignment="center")
         all_selected = bool(products) and len(selected_products) == len(products)
         current_page_all_selected = bool(current_page_products) and all(product.selected for product in current_page_products)
         select_summary = (
@@ -5085,7 +5430,7 @@ with tab_cards:
             else f"已勾选 <strong>{len(selected_products)}</strong> / {len(products)} 条"
         )
         st.session_state["select_current_page_products"] = current_page_all_selected
-        toolbar[0].checkbox(
+        actions_toolbar[0].checkbox(
             "全选当前页",
             key="select_current_page_products",
             label_visibility="collapsed",
@@ -5093,25 +5438,25 @@ with tab_cards:
             args=(current_page_products,),
         )
         selected_products = [p for p in products if p.selected]
-        toolbar[1].markdown(f"<div class='toolbar-meta'>{select_summary}</div>", unsafe_allow_html=True)
-        toolbar[2].button(
+        actions_toolbar[1].markdown(f"<div class='toolbar-meta'>{select_summary}</div>", unsafe_allow_html=True)
+        actions_toolbar[2].button(
             "全选全部结果",
             use_container_width=True,
             disabled=all_selected,
             on_click=select_all_filtered_products,
             args=(products, current_page_products),
         )
-        if toolbar[3].button("复制ASIN", use_container_width=True, disabled=not selected_products):
+        if actions_toolbar[3].button("复制ASIN", use_container_width=True, disabled=not selected_products):
             log(f"Copied {len(selected_products)} ASIN values.")
-        export_scope = toolbar[4].selectbox(
+        export_scope = actions_toolbar[4].selectbox(
             "导出范围",
-            ["已勾选", "当前页", "全部筛选结果"],
+            ["导出已勾选", "导出当前页", "导出全部结果"],
             key="result_export_scope",
             label_visibility="collapsed",
         )
         export_products = export_products_for_scope(products, current_page_products, export_scope)
         render_lazy_export_button(
-            toolbar[5],
+            actions_toolbar[5],
             "生成导出",
             export_products,
             "amazon_selection_export.xlsx",
@@ -5120,19 +5465,46 @@ with tab_cards:
             key="cards_scope_xlsx",
         )
         render_lazy_export_button(
-            toolbar[6],
+            actions_toolbar[6],
             "生成明细",
             products,
             "amazon_selection_all.xlsx",
             use_container_width=True,
             key="cards_all_xlsx",
         )
-        toolbar[7].markdown(f"<div class='toolbar-meta'>搜索结果数：<strong>{len(products):,}</strong></div>", unsafe_allow_html=True)
-        toolbar[8].selectbox("排序字段", ["月销量", "评分", "价格", "上架时间"], label_visibility="collapsed")
-        toolbar[9].selectbox("排序", ["降序", "升序"], label_visibility="collapsed")
-        toolbar[10].button("确定", type="primary", use_container_width=True)
+        st.markdown("<span class='cards-toolbar-controls-anchor'></span>", unsafe_allow_html=True)
+        st.markdown("<span class='cards-toolbar-sort-anchor'></span>", unsafe_allow_html=True)
+        controls_toolbar = st.columns([1.0, 0.64, 0.76, 0.68, 0.72, 3.2], vertical_alignment="center")
+        controls_toolbar[0].markdown(f"<div class='toolbar-meta'>搜索结果数：<strong>{len(products):,}</strong></div>", unsafe_allow_html=True)
+        result_view_mode = st.session_state.get("result_view_mode", "列表")
+        with controls_toolbar[1]:
+            st.markdown("<span class='result-view-toggle-anchor'></span>", unsafe_allow_html=True)
+            view_cols = st.columns(2, gap="small")
+            view_cols[0].button(
+                "列表",
+                key="result_view_list_button",
+                type="primary" if result_view_mode == "列表" else "secondary",
+                use_container_width=True,
+                on_click=set_result_view_mode,
+                args=("列表",),
+            )
+            view_cols[1].button(
+                "平铺",
+                key="result_view_tile_button",
+                type="primary" if result_view_mode == "平铺" else "secondary",
+                use_container_width=True,
+                on_click=set_result_view_mode,
+                args=("平铺",),
+            )
+            result_view_mode = st.session_state.get("result_view_mode", "列表")
+        controls_toolbar[2].selectbox("排序字段", ["月销量", "评分", "价格", "上架时间"], label_visibility="collapsed")
+        controls_toolbar[3].selectbox("排序", ["降序", "升序"], label_visibility="collapsed")
+        controls_toolbar[4].button("应用排序", type="primary", use_container_width=True)
         st.markdown("<div class='toolbar-spacer'></div>", unsafe_allow_html=True)
-        render_cards(current_page_products)
+        if result_view_mode == "平铺":
+            render_tile_cards(current_page_products)
+        else:
+            render_cards(current_page_products)
         render_result_pagination_controls(len(products), "cards_bottom")
         render_clipboard_bridge()
 
@@ -5143,7 +5515,7 @@ with tab_table:
             use_container_width=True,
             hide_index=True,
         )
-        export_scope = st.session_state.get("result_export_scope", "已勾选")
+        export_scope = st.session_state.get("result_export_scope", "导出已勾选")
         export_products = export_products_for_scope(products, current_page_products, export_scope)
         render_lazy_export_button(
             st,

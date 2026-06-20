@@ -63,8 +63,8 @@ class StreamlitUiStateTests(unittest.TestCase):
     def test_select_all_results_does_not_force_a_second_rerun(self):
         source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
         select_all_block = source[
-            source.index("toolbar[2].button("):
-            source.index('if toolbar[3].button("复制ASIN"')
+            source.index("actions_toolbar[2].button("):
+            source.index('if actions_toolbar[3].button("复制ASIN"')
         ]
 
         self.assertIn("args=(products, current_page_products)", select_all_block)
@@ -80,6 +80,65 @@ class StreamlitUiStateTests(unittest.TestCase):
         self.assertNotIn("data=csv_bytes(products)", result_area)
         self.assertNotIn("data=excel_bytes(export_products)", result_area)
         self.assertNotIn("data=csv_bytes(export_products)", result_area)
+
+    def test_product_results_support_list_and_tile_modes(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+        result_area = source[source.index("with tab_cards:"):source.index("with tab_table:")]
+
+        self.assertIn("result_view_mode", source)
+        self.assertIn('["列表", "平铺"]', source)
+        self.assertIn("def product_tile_html", source)
+        self.assertIn("def render_tile_cards", source)
+        self.assertIn('render_cards(current_page_products)', result_area)
+        self.assertIn('render_tile_cards(current_page_products)', result_area)
+
+    def test_tile_cards_show_rating_review_count_without_badges(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+        tile_html = source[source.index("def product_tile_html"):source.index("def render_tile_cards")]
+
+        self.assertIn("评分/评分数", tile_html)
+        self.assertIn("rating_review_label", tile_html)
+        self.assertNotIn("level-corner", tile_html)
+        self.assertNotIn("tag tag-", tile_html)
+
+    def test_result_view_mode_uses_compact_segmented_buttons(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+        result_area = source[source.index("with tab_cards:"):source.index("with tab_table:")]
+
+        self.assertIn("def set_result_view_mode", source)
+        self.assertIn("result-view-toggle-anchor", source)
+        self.assertIn('key="result_view_list_button"', result_area)
+        self.assertIn('key="result_view_tile_button"', result_area)
+        self.assertNotIn(".radio(", result_area)
+
+    def test_result_toolbar_is_split_into_responsive_groups(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+        result_area = source[source.index("with tab_cards:"):source.index("with tab_table:")]
+
+        self.assertIn("cards-toolbar-actions-anchor", result_area)
+        self.assertIn("cards-toolbar-controls-anchor", result_area)
+        self.assertIn("actions_toolbar = st.columns", result_area)
+        self.assertIn("controls_toolbar = st.columns", result_area)
+        self.assertNotIn("\n        toolbar = st.columns", result_area)
+
+    def test_result_toolbar_uses_compact_action_and_sort_labels(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+        result_area = source[source.index("with tab_cards:"):source.index("with tab_table:")]
+
+        self.assertIn("导出已勾选", source)
+        self.assertIn("导出当前页", source)
+        self.assertIn("导出全部结果", source)
+        self.assertIn('"应用排序"', result_area)
+        self.assertIn("cards-toolbar-sort-anchor", result_area)
+        self.assertNotIn('"确定"', result_area)
+
+    def test_lazy_export_button_does_not_stack_prepare_and_download(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+        helper = source[source.index("def render_lazy_export_button"):source.index("def level_badge")]
+
+        self.assertIn("download_label", helper)
+        self.assertIn("else:", helper)
+        self.assertLess(helper.index("container.download_button"), helper.index("else:"))
 
 
 if __name__ == "__main__":
