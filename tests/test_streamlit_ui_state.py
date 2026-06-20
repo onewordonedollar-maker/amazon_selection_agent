@@ -115,6 +115,28 @@ class StreamlitUiStateTests(unittest.TestCase):
         self.assertIn(".seller-list-frame {", source)
         self.assertIn("padding: 0 0 6px;", source)
 
+    def test_product_favorites_and_notes_are_wired_without_old_operation_icons(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+        list_html = source[source.index("def seller_product_html"):source.index("def product_tile_html")]
+        list_renderer = source[source.index("def render_cards"):source.index("def set_result_page")]
+        tile_renderer = source[source.index("def render_tile_cards"):source.index("def collect_sellersprite_products")]
+
+        self.assertIn("FAVORITES_PATH", source)
+        self.assertIn("PRODUCT_NOTES_PATH", source)
+        self.assertIn("def render_product_annotation_controls", source)
+        self.assertIn("toggle_product_favorite", source)
+        self.assertIn("handle_product_note_change", source)
+        self.assertIn("render_product_annotation_controls(product", list_renderer)
+        self.assertIn("render_product_annotation_controls(product", tile_renderer)
+        self.assertIn("tab_favorites", source)
+        self.assertIn('"收藏"', source)
+        self.assertIn("render_favorites_panel", source)
+        self.assertIn("seller-note-preview", list_html)
+        self.assertNotIn("<span>▥</span>", list_html)
+        self.assertNotIn("<span>⊙</span>", list_html)
+        self.assertNotIn("<span>⊕</span>", list_html)
+        self.assertNotIn("<span>▦</span>", list_html)
+
     def test_result_cards_and_table_use_display_numbers_not_source_rank(self):
         source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
         list_renderer = source[source.index("def render_cards"):source.index("def set_result_page")]

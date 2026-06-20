@@ -57,6 +57,15 @@ from src.result_pagination import (
     page_start_index,
     page_slice,
 )
+from src.product_annotations import (
+    load_favorites,
+    load_notes,
+    remove_favorite,
+    save_favorites,
+    save_notes,
+    set_product_note,
+    upsert_favorite,
+)
 
 category_selection_module = importlib.reload(category_selection_module)
 category_path_selected = category_selection_module.category_path_selected
@@ -75,6 +84,8 @@ RAW_PRODUCTS_HISTORY_LIMIT = 5
 LAST_COLLECTION_REPORT = OUTPUT_DIR / "last_collection_report.json"
 STOP_COLLECTION_FLAG = OUTPUT_DIR / "stop_collection.flag"
 COLLECTION_RUNNING_FLAG = OUTPUT_DIR / "collection_running.flag"
+FAVORITES_PATH = OUTPUT_DIR / "favorites.json"
+PRODUCT_NOTES_PATH = OUTPUT_DIR / "product_notes.json"
 STOP_COLLECTION_PORT = 8765
 SELLERSPRITE_PLUGIN_FIELDS_TEXT = "价格、评分、评分数、排名、销量、销售额、FBA费用、毛利率、变体数、卖家数、包装信息"
 SELLERSPRITE_EXPECTED_PRODUCTS_PER_PAGE = 50
@@ -550,6 +561,10 @@ def ensure_state():
         st.session_state.result_view_mode = "列表"
     if "select_current_page_products" not in st.session_state:
         st.session_state.select_current_page_products = False
+    if "favorite_products" not in st.session_state:
+        st.session_state.favorite_products = load_favorites(FAVORITES_PATH)
+    if "product_notes" not in st.session_state:
+        st.session_state.product_notes = load_notes(PRODUCT_NOTES_PATH)
     if "collection_total_raw_count" not in st.session_state:
         st.session_state.collection_total_raw_count = 0
     if "collection_completed_seed_count" not in st.session_state:
@@ -697,6 +712,81 @@ def handle_select_current_page_products_change(products: list["Product"]):
     set_all_product_selection(
         products,
         bool(st.session_state.get("select_current_page_products", False)),
+    )
+
+
+def sync_product_annotations(products: list["Product"]) -> None:
+    notes = st.session_state.get("product_notes", {})
+    for product in products:
+        if product.asin in notes:
+            product.note = notes[product.asin]
+
+
+def product_annotation_payload(product: "Product") -> dict:
+    payload = asdict(product)
+    payload["selected"] = False
+    return payload
+
+
+def toggle_product_favorite(product: "Product") -> None:
+    asin = product.asin
+    if not asin:
+        return
+    favorites = st.session_state.setdefault("favorite_products", {})
+    if asin in favorites:
+        remove_favorite(favorites, asin)
+        log(f"Removed favorite: {asin}.")
+    else:
+        upsert_favorite(
+            favorites,
+            product_annotation_payload(product),
+            source_label=product.category_path,
+            source_url=product.amazon_url,
+        )
+        log(f"Added favorite: {asin}.")
+    save_favorites(FAVORITES_PATH, favorites)
+
+
+def apply_note_to_loaded_products(asin: str, note: str) -> None:
+    for state_key in ("products", "raw_products", "collection_staged_raw_products"):
+        for product in st.session_state.get(state_key, []):
+            if getattr(product, "asin", "") == asin:
+                product.note = note
+
+
+def handle_product_note_change(asin: str, widget_key: str) -> None:
+    notes = st.session_state.setdefault("product_notes", {})
+    note = str(st.session_state.get(widget_key, "") or "").strip()
+    set_product_note(notes, asin, note)
+    save_notes(PRODUCT_NOTES_PATH, notes)
+    apply_note_to_loaded_products(asin, note)
+
+
+def render_product_annotation_controls(product: "Product", location: str) -> None:
+    asin = product.asin
+    if not asin:
+        return
+    note_key = f"product_note_{location}_{asin}"
+    if note_key not in st.session_state:
+        st.session_state[note_key] = st.session_state.get("product_notes", {}).get(asin, product.note or "")
+    is_favorite = asin in st.session_state.get("favorite_products", {})
+    st.markdown("<span class='product-annotation-anchor'></span>", unsafe_allow_html=True)
+    annotation_cols = st.columns([0.58, 2.4], vertical_alignment="center")
+    annotation_cols[0].button(
+        "已收藏" if is_favorite else "收藏",
+        key=f"favorite_{location}_{asin}",
+        use_container_width=True,
+        type="primary" if is_favorite else "secondary",
+        on_click=toggle_product_favorite,
+        args=(product,),
+    )
+    annotation_cols[1].text_input(
+        "备注",
+        key=note_key,
+        placeholder="备注会按 ASIN 自动保存",
+        label_visibility="collapsed",
+        on_change=handle_product_note_change,
+        args=(asin, note_key),
     )
 
 
@@ -1465,6 +1555,7 @@ def apply_filters_to_raw_pool(filters: dict) -> None:
     filtered_products = apply_product_filters(st.session_state.raw_products, filters)
     for product in filtered_products:
         product.selected = bool(selected_by_asin.get(product.asin, product.selected))
+    sync_product_annotations(filtered_products)
     st.session_state.products = filtered_products
     st.session_state.last_collection_summary = build_collection_summary(
         st.session_state.raw_products,
@@ -2255,6 +2346,7 @@ def seller_product_html(product: Product, display_number: int | None = None) -> 
     package_weight = _display_dash(product.package_weight_lb, " pounds")
     package_dimensions = _display_dash(product.package_dimensions)
     row_number = display_number if display_number is not None else product.rank
+    note_preview = escape(product.note or "未备注")
     return f"""
     <div class="seller-row">
         <div class="seller-main">
@@ -2284,12 +2376,13 @@ def seller_product_html(product: Product, display_number: int | None = None) -> 
             <div class="cell"><strong>{_display_money(product.fba_fee)}</strong><span class="muted">{margin}</span></div>
             <div class="cell"><strong>{escape(str(_display_dash(product.launched_at)))}</strong><span class="muted">-</span></div>
             <div class="cell"><strong>{delivery}</strong><span class="muted">-</span></div>
-            <div class="ops-cell"><span>▥</span><span>⊙</span><span>⊕</span><span>▦</span><span>⋯</span></div>
+            <div class="ops-cell"></div>
         </div>
         <div class="seller-detail">
             <div>浏览同类目: <span class="orange">{escape(bsr_category or category_path)}</span> <span class="pill orange-pill">BS榜单</span> <span class="pill orange-pill">新品榜</span> <span class="pill orange-pill">市场分析</span> <span class="pill orange-pill">找相似</span></div>
             <div>中文类目名: - <span class="rank-pill">#{_display_int(sub_rank) if sub_rank else 1}</span> in {escape(sub_category or leaf_category)}</div>
             <div>LQS: <strong>0</strong>　卖家: <strong>{escape(product.seller_name or '0')}</strong>　BuyBox卖家: <strong>{escape(product.seller_name or '0')}</strong>　商品重量: <strong>{package_weight}</strong>　商品尺寸: <strong>{escape(str(package_dimensions))}</strong>　包装重量: <strong>{package_weight}</strong>　包装尺寸: <strong>{escape(str(package_dimensions))}</strong></div>
+            <div class="seller-note-preview">备注：{note_preview}</div>
         </div>
     </div>
     """
@@ -2317,6 +2410,7 @@ def product_tile_html(product: Product) -> str:
     review_count = "-" if not product.review_count else f"{product.review_count:,}"
     rating_review_label = f"{rating}/{review_count}"
     launched_at = escape(str(_display_dash(product.launched_at)))
+    note_preview = escape(product.note or "未备注")
     return f"""
     <div class="tile-card">
         <div class="tile-image-wrap">
@@ -2339,6 +2433,7 @@ def product_tile_html(product: Product) -> str:
             <div>评分/评分数: <strong>{rating_review_label}</strong></div>
             <div class="tile-wide">上架时间: <strong>{launched_at}</strong></div>
         </div>
+        <div class="tile-note-preview">备注：{note_preview}</div>
     </div>
     """
 
@@ -2357,7 +2452,28 @@ def render_tile_cards(products):
                     label_visibility="collapsed",
                 )
                 st.markdown(product_tile_html(product), unsafe_allow_html=True)
+                render_product_annotation_controls(product, "tile")
     st.markdown("</div>", unsafe_allow_html=True)
+
+
+def render_favorites_panel() -> None:
+    favorites = st.session_state.get("favorite_products", {})
+    if not favorites:
+        st.info("暂未收藏产品。")
+        return
+    favorite_products = [
+        product_from_dict(record.get("product", {}))
+        for record in favorites.values()
+        if isinstance(record, dict) and isinstance(record.get("product", {}), dict)
+    ]
+    sync_product_annotations(favorite_products)
+    st.caption(f"已收藏 {len(favorite_products)} 个 ASIN，收藏记录按 ASIN 去重，备注会在不同采集批次之间保留。")
+    for start in range(0, len(favorite_products), 4):
+        columns = st.columns(4, gap="medium")
+        for column, product in zip(columns, favorite_products[start:start + 4]):
+            with column:
+                st.markdown(product_tile_html(product), unsafe_allow_html=True)
+                render_product_annotation_controls(product, "favorite")
 
 
 def collect_sellersprite_products(list_type, filters, category_path: str = "") -> list[Product]:
@@ -3014,6 +3130,7 @@ def render_cards(products, display_start: int = 0):
             label_visibility="collapsed",
         )
         st.markdown(seller_product_html(product, display_number), unsafe_allow_html=True)
+        render_product_annotation_controls(product, "list")
         st.markdown("<div class='seller-row-space'></div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -4065,6 +4182,41 @@ st.markdown(
     }
     .tile-stats .tile-wide {
         grid-column: 1 / -1;
+    }
+    .tile-note-preview,
+    .seller-note-preview {
+        background: #f7f9fc;
+        border: 1px solid #edf1f6;
+        border-radius: 5px;
+        color: #5f6875;
+        font-size: 12px;
+        line-height: 1.45;
+        margin-top: 8px;
+        overflow: hidden;
+        padding: 6px 8px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .seller-note-preview {
+        margin-right: 14px;
+        max-width: 860px;
+    }
+    div[data-testid="stElementContainer"]:has(.product-annotation-anchor) {
+        display: none;
+    }
+    div[data-testid="stElementContainer"]:has(.product-annotation-anchor) + div[data-testid="stHorizontalBlock"] {
+        background: #ffffff;
+        border: 1px solid #e8edf3;
+        border-radius: 0 0 5px 5px;
+        margin: -7px 0 9px 46px !important;
+        max-width: 620px;
+        padding: 7px 8px 8px !important;
+    }
+    div[data-testid="stElementContainer"]:has(.product-annotation-anchor) + div[data-testid="stHorizontalBlock"] button {
+        min-height: 38px !important;
+    }
+    div[data-testid="stElementContainer"]:has(.product-annotation-anchor) + div[data-testid="stHorizontalBlock"] input {
+        min-height: 38px !important;
     }
     .seller-main {
         display: grid;
@@ -5422,6 +5574,7 @@ if run:
     st.rerun()
 
 products = st.session_state.products
+sync_product_annotations(products)
 sync_product_selection_from_widgets(products)
 current_page_size = normalize_page_size(st.session_state.get("result_page_size"))
 st.session_state.result_page_size = current_page_size
@@ -5452,7 +5605,8 @@ summary_cols[5].metric("平均分" if UI_LANG == "中文" else "Avg Score", roun
 if products:
     render_result_pagination_controls(len(products), "top")
 
-tab_cards, tab_table, tab_log = st.tabs([T["cards"], T["table"], T["log"]])
+favorites_tab_label = "收藏" if UI_LANG == "中文" else "Favorites"
+tab_cards, tab_table, tab_favorites, tab_log = st.tabs([T["cards"], T["table"], favorites_tab_label, T["log"]])
 
 with tab_cards:
     if not products:
@@ -5592,6 +5746,9 @@ with tab_table:
         render_result_pagination_controls(len(products), "table_bottom")
     else:
         st.info(empty_products_message())
+
+with tab_favorites:
+    render_favorites_panel()
 
 with tab_log:
     st.caption("操作日志：用于回看载入、筛选、采集和停止等动作。")
