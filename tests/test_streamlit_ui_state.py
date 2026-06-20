@@ -22,6 +22,65 @@ class StreamlitUiStateTests(unittest.TestCase):
         self.assertNotIn("def sync_category_select_all_state", source)
         self.assertNotIn("def sync_category_ancestors", source)
 
+    def test_result_pagination_state_and_slicing_are_wired(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+
+        self.assertIn("PAGE_SIZE_OPTIONS", source)
+        self.assertIn("result_page_size", source)
+        self.assertIn("result_current_page", source)
+        self.assertIn("current_page_products = page_slice(products", source)
+        self.assertIn("render_cards(current_page_products)", source)
+        self.assertIn("table_rows(current_page_products)", source)
+
+    def test_result_exports_support_selected_current_page_and_all_filtered(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+
+        self.assertIn("result_export_scope", source)
+        self.assertIn("export_products_for_scope", source)
+        self.assertIn('"已勾选"', source)
+        self.assertIn('"当前页"', source)
+        self.assertIn('"全部筛选结果"', source)
+
+    def test_bulk_select_all_results_does_not_write_every_product_widget_key(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+
+        self.assertIn("def select_all_filtered_products", source)
+        self.assertIn("clear_product_selection_widget_state(products)", source)
+        self.assertIn("visible_products", source)
+        self.assertIn('st.session_state[f"row_include_{product.asin}"] = True', source)
+        self.assertNotIn("set_all_product_selection(products, True)", source)
+
+    def test_export_generation_is_cached_without_selection_state(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+
+        self.assertIn("def export_rows_signature", source)
+        self.assertIn("@st.cache_data(show_spinner=False)", source)
+        self.assertIn("def cached_excel_bytes", source)
+        self.assertIn("def cached_csv_bytes", source)
+        self.assertIn("row = {field: product_row.get(field, \"\") for field, _ in SELLERSPRITE_EXPORT_COLUMNS}", source)
+        self.assertNotIn("asdict(product)", source[source.index("def export_rows_signature"):source.index("def cached_csv_bytes")])
+
+    def test_select_all_results_does_not_force_a_second_rerun(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+        select_all_block = source[
+            source.index("toolbar[2].button("):
+            source.index('if toolbar[3].button("复制ASIN"')
+        ]
+
+        self.assertIn("args=(products, current_page_products)", select_all_block)
+        self.assertIn("on_click=select_all_filtered_products", select_all_block)
+        self.assertNotIn("st.rerun()", select_all_block)
+
+    def test_result_exports_are_lazy_not_generated_during_render(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+        result_area = source[source.index("with tab_cards:"):source.index("with tab_log:")]
+
+        self.assertIn("render_lazy_export_button", source)
+        self.assertNotIn("data=excel_bytes(products)", result_area)
+        self.assertNotIn("data=csv_bytes(products)", result_area)
+        self.assertNotIn("data=excel_bytes(export_products)", result_area)
+        self.assertNotIn("data=csv_bytes(export_products)", result_area)
+
 
 if __name__ == "__main__":
     unittest.main()

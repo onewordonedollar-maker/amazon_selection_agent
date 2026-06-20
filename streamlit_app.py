@@ -48,6 +48,14 @@ from src.sellersprite_parser import (
     load_cached_sellersprite_products,
     sellersprite_product_hydrated,
 )
+from src.result_pagination import (
+    PAGE_SIZE_OPTIONS,
+    clamp_page,
+    normalize_page_size,
+    page_count,
+    page_range_label,
+    page_slice,
+)
 
 category_selection_module = importlib.reload(category_selection_module)
 category_path_selected = category_selection_module.category_path_selected
@@ -420,6 +428,22 @@ def close_category_dialog_state() -> None:
     st.session_state.show_category_dialog = False
 
 
+def reset_result_page() -> None:
+    st.session_state.result_current_page = 1
+
+
+def handle_result_page_size_change() -> None:
+    reset_result_page()
+
+
+def handle_result_page_jump_change() -> None:
+    st.session_state.result_current_page = clamp_page(
+        st.session_state.get("result_page_jump", 1),
+        len(st.session_state.get("products", [])),
+        st.session_state.get("result_page_size", PAGE_SIZE_OPTIONS[0]),
+    )
+
+
 def prepare_collection_run() -> None:
     clear_stop_collection_flag()
     mark_collection_running()
@@ -509,6 +533,16 @@ def ensure_state():
         st.session_state.collection_in_progress = False
     if "collection_start_requested" not in st.session_state:
         st.session_state.collection_start_requested = False
+    if "result_page_size" not in st.session_state:
+        st.session_state.result_page_size = PAGE_SIZE_OPTIONS[0]
+    if "result_current_page" not in st.session_state:
+        st.session_state.result_current_page = 1
+    if "result_page_jump" not in st.session_state:
+        st.session_state.result_page_jump = 1
+    if "result_export_scope" not in st.session_state:
+        st.session_state.result_export_scope = "已勾选"
+    if "select_current_page_products" not in st.session_state:
+        st.session_state.select_current_page_products = False
     if "collection_total_raw_count" not in st.session_state:
         st.session_state.collection_total_raw_count = 0
     if "collection_completed_seed_count" not in st.session_state:
@@ -628,11 +662,43 @@ def set_all_product_selection(products, selected: bool):
         st.session_state[f"row_include_{product.asin}"] = selected
 
 
+def clear_product_selection_widget_state(products: list["Product"] | None = None) -> None:
+    product_asins = {product.asin for product in products} if products is not None else None
+    for key in list(st.session_state.keys()):
+        if not key.startswith("row_include_"):
+            continue
+        if product_asins is None or key.removeprefix("row_include_") in product_asins:
+            del st.session_state[key]
+
+
+def select_all_filtered_products(products: list["Product"], visible_products: list["Product"]) -> None:
+    for product in products:
+        product.selected = True
+    clear_product_selection_widget_state(products)
+    for product in visible_products:
+        st.session_state[f"row_include_{product.asin}"] = True
+
+
 def handle_select_all_products_change():
     set_all_product_selection(
         st.session_state.products,
         bool(st.session_state.get("select_all_products", False)),
     )
+
+
+def handle_select_current_page_products_change(products: list["Product"]):
+    set_all_product_selection(
+        products,
+        bool(st.session_state.get("select_current_page_products", False)),
+    )
+
+
+def export_products_for_scope(products: list["Product"], current_page_products: list["Product"], scope: str) -> list["Product"]:
+    if scope == "当前页":
+        return current_page_products
+    if scope == "全部筛选结果":
+        return products
+    return [product for product in products if product.selected]
 
 
 def product_from_dict(data: dict) -> Product:
@@ -1398,6 +1464,7 @@ def apply_filters_to_raw_pool(filters: dict) -> None:
         st.session_state.products,
         filters,
     )
+    reset_result_page()
 
 
 def stage_raw_products(products: list[Product]) -> None:
@@ -1664,17 +1731,31 @@ def collect_real_products(list_type, url, filters) -> list[Product]:
     ]
 
 
+def export_rows_signature(products: list[Product]) -> tuple[tuple, ...]:
+    fields = [field for field, _ in SELLERSPRITE_EXPORT_COLUMNS]
+    rows = []
+    for product in products:
+        product_row = vars(product)
+        row = {field: product_row.get(field, "") for field, _ in SELLERSPRITE_EXPORT_COLUMNS}
+        row["image_preview_formula"] = image_formula(str(row.get("image_url", "")))
+        rows.append(tuple(row.get(field, "") for field in fields))
+    return tuple(rows)
+
+
 def csv_bytes(products):
-    if not products:
+    return cached_csv_bytes(export_rows_signature(products))
+
+
+@st.cache_data(show_spinner=False)
+def cached_csv_bytes(rows: tuple[tuple, ...]):
+    if not rows:
         return b""
     output = StringIO()
     headers = [header for _, header in SELLERSPRITE_EXPORT_COLUMNS]
     writer = csv.DictWriter(output, fieldnames=headers)
     writer.writeheader()
-    for product in products:
-        row = asdict(product)
-        row["image_preview_formula"] = image_formula(row.get("image_url", ""))
-        writer.writerow({header: row.get(field, "") for field, header in SELLERSPRITE_EXPORT_COLUMNS})
+    for values in rows:
+        writer.writerow({header: values[index] for index, (_, header) in enumerate(SELLERSPRITE_EXPORT_COLUMNS)})
     return output.getvalue().encode("utf-8-sig")
 
 
@@ -1694,7 +1775,12 @@ def image_formula(image_url: str) -> str:
 
 
 def excel_bytes(products):
-    if not products:
+    return cached_excel_bytes(export_rows_signature(products))
+
+
+@st.cache_data(show_spinner=False)
+def cached_excel_bytes(rows: tuple[tuple, ...]):
+    if not rows:
         return b""
     fields = [field for field, _ in SELLERSPRITE_EXPORT_COLUMNS]
     headers = [header for _, header in SELLERSPRITE_EXPORT_COLUMNS]
@@ -1713,10 +1799,8 @@ def excel_bytes(products):
     sheet.freeze_panes = "A2"
     sheet.auto_filter.ref = f"A1:{get_column_letter(len(headers))}1"
 
-    for row_number, product in enumerate(products, start=2):
-        row = asdict(product)
-        row["image_preview_formula"] = image_formula(row.get("image_url", ""))
-        sheet.append([row.get(field, "") for field in fields])
+    for row_number, row_values in enumerate(rows, start=2):
+        sheet.append(list(row_values))
         sheet.row_dimensions[row_number].height = 42
 
     width_by_field = {
@@ -1751,7 +1835,7 @@ def excel_bytes(products):
                 cell.number_format = '#,##0'
     for column_index, (field, _) in enumerate(SELLERSPRITE_EXPORT_COLUMNS, start=1):
         if field in {"amazon_url", "image_url"}:
-            for row_number in range(2, len(products) + 2):
+            for row_number in range(2, len(rows) + 2):
                 cell = sheet.cell(row=row_number, column=column_index)
                 if cell.value:
                     cell.hyperlink = cell.value
@@ -1760,6 +1844,69 @@ def excel_bytes(products):
     output = BytesIO()
     workbook.save(output)
     return output.getvalue()
+
+
+def export_identity(products: list[Product]) -> tuple[tuple, ...]:
+    return tuple(
+        (
+            product.asin,
+            product.scraped_at,
+            product.price,
+            product.review_count,
+            product.monthly_bought,
+            product.child_monthly_sales,
+            product.bsr_rank,
+            product.sales_amount,
+        )
+        for product in products
+    )
+
+
+def prepared_export_signature(products: list[Product], file_name: str, file_format: str) -> tuple:
+    return (file_name, file_format, export_identity(products))
+
+
+def export_bytes_for_format(products: list[Product], file_format: str) -> bytes:
+    if file_format == "csv":
+        return csv_bytes(products)
+    return excel_bytes(products)
+
+
+def export_mime_for_format(file_format: str) -> str:
+    if file_format == "csv":
+        return "text/csv"
+    return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+def render_lazy_export_button(
+    container,
+    label: str,
+    products: list[Product],
+    file_name: str,
+    *,
+    file_format: str = "xlsx",
+    disabled: bool = False,
+    use_container_width: bool = False,
+    key: str,
+) -> None:
+    signature = prepared_export_signature(products, file_name, file_format)
+    state_key = f"prepared_export_{key}"
+    prepared = st.session_state.get(state_key)
+    if container.button(label, key=f"prepare_export_{key}", disabled=disabled, use_container_width=use_container_width):
+        prepared = {
+            "signature": signature,
+            "data": export_bytes_for_format(products, file_format),
+        }
+        st.session_state[state_key] = prepared
+    if prepared and prepared.get("signature") == signature:
+        container.download_button(
+            f"下载{label.replace('生成', '')}",
+            data=prepared["data"],
+            file_name=file_name,
+            mime=export_mime_for_format(file_format),
+            use_container_width=use_container_width,
+            key=f"download_export_{key}",
+        )
 
 
 def level_badge(level: str):
@@ -2793,6 +2940,74 @@ def render_cards(products):
         st.markdown("<div class='seller-row-space'></div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
+
+def set_result_page(page: int, total_items: int) -> None:
+    st.session_state.result_current_page = clamp_page(
+        page,
+        total_items,
+        st.session_state.get("result_page_size", PAGE_SIZE_OPTIONS[0]),
+    )
+
+
+def render_result_pagination_controls(total_items: int, location: str) -> None:
+    page_size = normalize_page_size(st.session_state.get("result_page_size"))
+    current_page = clamp_page(st.session_state.get("result_current_page", 1), total_items, page_size)
+    st.session_state.result_current_page = current_page
+    total_pages = page_count(total_items, page_size)
+    st.markdown(f"<span class='result-pagination-anchor result-pagination-{location}'></span>", unsafe_allow_html=True)
+    if location == "top":
+        cols = st.columns([1.0, 0.95, 0.8, 1.2, 0.95, 0.95, 1.2], vertical_alignment="center")
+        cols[0].markdown(
+            f"<div class='pagination-meta'>{page_range_label(total_items, current_page, page_size)}</div>",
+            unsafe_allow_html=True,
+        )
+        cols[1].selectbox(
+            "每页",
+            PAGE_SIZE_OPTIONS,
+            key="result_page_size",
+            label_visibility="collapsed",
+            on_change=handle_result_page_size_change,
+        )
+        if cols[2].button("上一页", key="result_prev_top", use_container_width=True, disabled=current_page <= 1):
+            set_result_page(current_page - 1, total_items)
+            st.rerun()
+        cols[3].markdown(
+            f"<div class='pagination-meta page-count'>第 <strong>{current_page}</strong> / {total_pages} 页</div>",
+            unsafe_allow_html=True,
+        )
+        if cols[4].button("下一页", key="result_next_top", use_container_width=True, disabled=current_page >= total_pages):
+            set_result_page(current_page + 1, total_items)
+            st.rerun()
+        st.session_state.result_page_jump = current_page
+        cols[5].number_input(
+            "跳转页",
+            min_value=1,
+            max_value=total_pages,
+            step=1,
+            key="result_page_jump",
+            label_visibility="collapsed",
+            on_change=handle_result_page_jump_change,
+        )
+        if cols[6].button("跳转", key="result_jump_top", use_container_width=True):
+            handle_result_page_jump_change()
+            st.rerun()
+    else:
+        cols = st.columns([1.25, 0.85, 1.2, 0.85, 3.2], vertical_alignment="center")
+        cols[0].markdown(
+            f"<div class='pagination-meta'>{page_range_label(total_items, current_page, page_size)}</div>",
+            unsafe_allow_html=True,
+        )
+        if cols[1].button("上一页", key=f"result_prev_{location}", use_container_width=True, disabled=current_page <= 1):
+            set_result_page(current_page - 1, total_items)
+            st.rerun()
+        cols[2].markdown(
+            f"<div class='pagination-meta page-count'>第 <strong>{current_page}</strong> / {total_pages} 页</div>",
+            unsafe_allow_html=True,
+        )
+        if cols[3].button("下一页", key=f"result_next_{location}", use_container_width=True, disabled=current_page >= total_pages):
+            set_result_page(current_page + 1, total_items)
+            st.rerun()
+
 ensure_state()
 collection_locked = bool(st.session_state.collection_in_progress)
 
@@ -3450,6 +3665,29 @@ st.markdown(
     }
     .toolbar-spacer {
         height: 0;
+    }
+    div[data-testid="stElementContainer"]:has(.result-pagination-anchor) {
+        display: none;
+    }
+    div[data-testid="stElementContainer"]:has(.result-pagination-anchor) + div[data-testid="stHorizontalBlock"] {
+        align-items: center !important;
+        margin: 8px 0 10px !important;
+        padding: 8px 10px !important;
+        background: #ffffff;
+        border: 1px solid #e6ebf1;
+        border-radius: 8px;
+    }
+    .pagination-meta {
+        color: #667383;
+        font-size: 13px;
+        line-height: 36px;
+        white-space: nowrap;
+    }
+    .pagination-meta strong {
+        color: #ff7a1a;
+    }
+    .pagination-meta.page-count {
+        text-align: center;
     }
     .seller-list-frame {
         background: #f1f3f6;
@@ -4804,6 +5042,12 @@ if run:
 
 products = st.session_state.products
 sync_product_selection_from_widgets(products)
+current_page_size = normalize_page_size(st.session_state.get("result_page_size"))
+st.session_state.result_page_size = current_page_size
+current_result_page = clamp_page(st.session_state.get("result_current_page", 1), len(products), current_page_size)
+st.session_state.result_current_page = current_result_page
+st.session_state.result_page_jump = current_result_page
+current_page_products = page_slice(products, current_result_page, current_page_size)
 
 if st.session_state.last_collection_summary:
     if products:
@@ -4821,6 +5065,9 @@ summary_cols[3].metric("B 级", sum(1 for p in products if p.potential_level == 
 summary_cols[4].metric("风险" if UI_LANG == "中文" else "Risk", sum(1 for p in products if p.potential_level == "Risk"))
 summary_cols[5].metric("平均分" if UI_LANG == "中文" else "Avg Score", round(sum(p.potential_score for p in products) / len(products), 1) if products else 0)
 
+if products:
+    render_result_pagination_controls(len(products), "top")
+
 tab_cards, tab_table, tab_log = st.tabs([T["cards"], T["table"], T["log"]])
 
 with tab_cards:
@@ -4829,82 +5076,108 @@ with tab_cards:
     else:
         selected_products = [p for p in products if p.selected]
         st.markdown("<span class='cards-toolbar-anchor'></span>", unsafe_allow_html=True)
-        toolbar = st.columns([0.45, 1.05, 1.05, 0.85, 1.0, 1.35, 0.9, 1.15, 0.95, 0.75], vertical_alignment="center")
+        toolbar = st.columns([0.45, 1.05, 1.0, 0.9, 1.05, 1.25, 1.35, 0.85, 1.05, 0.9, 0.75], vertical_alignment="center")
         all_selected = bool(products) and len(selected_products) == len(products)
+        current_page_all_selected = bool(current_page_products) and all(product.selected for product in current_page_products)
         select_summary = (
             f"已全选 <strong>{len(selected_products)}</strong> 条"
             if all_selected
             else f"已勾选 <strong>{len(selected_products)}</strong> / {len(products)} 条"
         )
-        st.session_state["select_all_products"] = all_selected
-        master_selected = toolbar[0].checkbox(
-            "全选",
-            key="select_all_products",
+        st.session_state["select_current_page_products"] = current_page_all_selected
+        toolbar[0].checkbox(
+            "全选当前页",
+            key="select_current_page_products",
             label_visibility="collapsed",
-            on_change=handle_select_all_products_change,
+            on_change=handle_select_current_page_products_change,
+            args=(current_page_products,),
         )
         selected_products = [p for p in products if p.selected]
         toolbar[1].markdown(f"<div class='toolbar-meta'>{select_summary}</div>", unsafe_allow_html=True)
-        if toolbar[2].button("复制ASIN", use_container_width=True, disabled=not selected_products):
+        toolbar[2].button(
+            "全选全部结果",
+            use_container_width=True,
+            disabled=all_selected,
+            on_click=select_all_filtered_products,
+            args=(products, current_page_products),
+        )
+        if toolbar[3].button("复制ASIN", use_container_width=True, disabled=not selected_products):
             log(f"Copied {len(selected_products)} ASIN values.")
-        toolbar[3].download_button(
-            "导出",
-            data=excel_bytes(selected_products),
-            file_name="amazon_selection_selected.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            disabled=not selected_products,
-            use_container_width=True,
+        export_scope = toolbar[4].selectbox(
+            "导出范围",
+            ["已勾选", "当前页", "全部筛选结果"],
+            key="result_export_scope",
+            label_visibility="collapsed",
         )
-        toolbar[4].download_button(
-            "导出明细",
-            data=excel_bytes(products),
-            file_name="amazon_selection_all.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        export_products = export_products_for_scope(products, current_page_products, export_scope)
+        render_lazy_export_button(
+            toolbar[5],
+            "生成导出",
+            export_products,
+            "amazon_selection_export.xlsx",
+            disabled=not export_products,
             use_container_width=True,
+            key="cards_scope_xlsx",
         )
-        toolbar[5].markdown(f"<div class='toolbar-meta'>搜索结果数：<strong>{len(products):,}</strong></div>", unsafe_allow_html=True)
-        toolbar[6].radio("View", ["列表", "大图"], horizontal=True, label_visibility="collapsed")
-        toolbar[7].selectbox("排序字段", ["月销量", "评分", "价格", "上架时间"], label_visibility="collapsed")
-        toolbar[8].selectbox("排序", ["降序", "升序"], label_visibility="collapsed")
-        toolbar[9].button("确定", type="primary", use_container_width=True)
+        render_lazy_export_button(
+            toolbar[6],
+            "生成明细",
+            products,
+            "amazon_selection_all.xlsx",
+            use_container_width=True,
+            key="cards_all_xlsx",
+        )
+        toolbar[7].markdown(f"<div class='toolbar-meta'>搜索结果数：<strong>{len(products):,}</strong></div>", unsafe_allow_html=True)
+        toolbar[8].selectbox("排序字段", ["月销量", "评分", "价格", "上架时间"], label_visibility="collapsed")
+        toolbar[9].selectbox("排序", ["降序", "升序"], label_visibility="collapsed")
+        toolbar[10].button("确定", type="primary", use_container_width=True)
         st.markdown("<div class='toolbar-spacer'></div>", unsafe_allow_html=True)
-        render_cards(products)
+        render_cards(current_page_products)
+        render_result_pagination_controls(len(products), "cards_bottom")
         render_clipboard_bridge()
 
 with tab_table:
     if products:
         st.dataframe(
-            table_rows(products),
+            table_rows(current_page_products),
             use_container_width=True,
             hide_index=True,
         )
-        selected_products = [p for p in products if p.selected]
-        st.download_button(
-            "导出已选 Excel" if UI_LANG == "中文" else "Download selected Excel",
-            data=excel_bytes(selected_products),
-            file_name="amazon_selection_selected.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            disabled=not selected_products,
+        export_scope = st.session_state.get("result_export_scope", "已勾选")
+        export_products = export_products_for_scope(products, current_page_products, export_scope)
+        render_lazy_export_button(
+            st,
+            f"生成{export_scope} Excel" if UI_LANG == "中文" else "Prepare Excel",
+            export_products,
+            "amazon_selection_export.xlsx",
+            disabled=not export_products,
+            key="table_scope_xlsx",
         )
-        st.download_button(
-            "导出全部 Excel" if UI_LANG == "中文" else "Download all Excel",
-            data=excel_bytes(products),
-            file_name="amazon_selection_all.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        render_lazy_export_button(
+            st,
+            "生成全部筛选结果 Excel" if UI_LANG == "中文" else "Prepare all filtered Excel",
+            products,
+            "amazon_selection_all.xlsx",
+            key="table_all_xlsx",
         )
-        st.download_button(
-            "导出已选 CSV" if UI_LANG == "中文" else "Download selected CSV",
-            data=csv_bytes(selected_products),
-            file_name="amazon_selection_selected.csv",
-            mime="text/csv",
-            disabled=not selected_products,
+        render_lazy_export_button(
+            st,
+            f"生成{export_scope} CSV" if UI_LANG == "中文" else "Prepare CSV",
+            export_products,
+            "amazon_selection_export.csv",
+            file_format="csv",
+            disabled=not export_products,
+            key="table_scope_csv",
         )
-        st.download_button(
-            "导出全部 CSV" if UI_LANG == "中文" else "Download all CSV",
-            data=csv_bytes(products),
-            file_name="amazon_selection_all.csv",
-            mime="text/csv",
+        render_lazy_export_button(
+            st,
+            "生成全部筛选结果 CSV" if UI_LANG == "中文" else "Prepare all filtered CSV",
+            products,
+            "amazon_selection_all.csv",
+            file_format="csv",
+            key="table_all_csv",
         )
+        render_result_pagination_controls(len(products), "table_bottom")
     else:
         st.info(empty_products_message())
 
