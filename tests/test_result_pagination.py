@@ -6,6 +6,7 @@ from src.result_pagination import (
     normalize_page_size,
     page_count,
     page_range_label,
+    page_start_index,
     page_slice,
 )
 
@@ -36,6 +37,13 @@ class ResultPaginationTests(unittest.TestCase):
         self.assertEqual(page_slice(items, 2, 50), list(range(51, 101)))
         self.assertEqual(page_slice(items, 3, 50), list(range(101, 121)))
         self.assertEqual(page_slice(items, 9, 50), list(range(101, 121)))
+
+    def test_page_start_index_describes_display_number_offset(self):
+        self.assertEqual(page_start_index(0, 1, 50), 0)
+        self.assertEqual(page_start_index(120, 1, 50), 0)
+        self.assertEqual(page_start_index(120, 2, 50), 50)
+        self.assertEqual(page_start_index(120, 3, 50), 100)
+        self.assertEqual(page_start_index(120, 9, 50), 100)
 
     def test_page_range_label_describes_visible_range(self):
         self.assertEqual(page_range_label(0, 1, 50), "显示 0 / 共 0 条")

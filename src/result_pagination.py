@@ -34,6 +34,11 @@ def page_bounds(total_items: int, page: int, page_size: int) -> tuple[int, int]:
     return start, end
 
 
+def page_start_index(total_items: int, page: int, page_size: int) -> int:
+    start, _ = page_bounds(total_items, page, page_size)
+    return start
+
+
 def page_slice(items: Sequence[T], page: int, page_size: int) -> list[T]:
     start, end = page_bounds(len(items), page, page_size)
     return list(items[start:end])

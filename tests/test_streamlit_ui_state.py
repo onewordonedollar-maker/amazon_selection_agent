@@ -29,8 +29,8 @@ class StreamlitUiStateTests(unittest.TestCase):
         self.assertIn("result_page_size", source)
         self.assertIn("result_current_page", source)
         self.assertIn("current_page_products = page_slice(products", source)
-        self.assertIn("render_cards(current_page_products)", source)
-        self.assertIn("table_rows(current_page_products)", source)
+        self.assertIn("render_cards(current_page_products, current_page_display_start)", source)
+        self.assertIn("table_rows(current_page_products, current_page_display_start)", source)
 
     def test_result_exports_support_selected_current_page_and_all_filtered(self):
         source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
@@ -89,7 +89,7 @@ class StreamlitUiStateTests(unittest.TestCase):
         self.assertIn('["列表", "平铺"]', source)
         self.assertIn("def product_tile_html", source)
         self.assertIn("def render_tile_cards", source)
-        self.assertIn('render_cards(current_page_products)', result_area)
+        self.assertIn('render_cards(current_page_products, current_page_display_start)', result_area)
         self.assertIn('render_tile_cards(current_page_products)', result_area)
 
     def test_tile_cards_show_rating_review_count_without_badges(self):
@@ -114,6 +114,22 @@ class StreamlitUiStateTests(unittest.TestCase):
         self.assertIn("div[data-testid=\"stElementContainer\"]:has(.tile-card-select-anchor) + div[data-testid=\"stCheckbox\"]", source)
         self.assertIn(".seller-list-frame {", source)
         self.assertIn("padding: 0 0 6px;", source)
+
+    def test_result_cards_and_table_use_display_numbers_not_source_rank(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+        list_renderer = source[source.index("def render_cards"):source.index("def set_result_page")]
+        table_renderer = source[source.index("def table_rows"):source.index("def image_formula")]
+        start = source.index("current_page_products = page_slice(products")
+        end = source.index("if st.session_state.last_collection_summary", start)
+        result_area = source[start:end]
+
+        self.assertIn("page_start_index", source)
+        self.assertIn("current_page_display_start", result_area)
+        self.assertIn("render_cards(current_page_products, current_page_display_start)", source)
+        self.assertIn("table_rows(current_page_products, current_page_display_start)", source)
+        self.assertIn("display_number", list_renderer)
+        self.assertNotIn('class="seller-rank">{product.rank}</div>', list_renderer)
+        self.assertIn('row["rank"] = display_number', table_renderer)
 
     def test_result_view_mode_uses_compact_segmented_buttons(self):
         source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")

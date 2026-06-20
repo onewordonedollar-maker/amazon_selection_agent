@@ -54,6 +54,7 @@ from src.result_pagination import (
     normalize_page_size,
     page_count,
     page_range_label,
+    page_start_index,
     page_slice,
 )
 
@@ -1765,10 +1766,12 @@ def cached_csv_bytes(rows: tuple[tuple, ...]):
     return output.getvalue().encode("utf-8-sig")
 
 
-def table_rows(products: list[Product]) -> list[dict]:
+def table_rows(products: list[Product], display_start: int = 0) -> list[dict]:
     rows = []
-    for product in products:
+    for index, product in enumerate(products, start=1):
         row = asdict(product)
+        display_number = display_start + index
+        row["rank"] = display_number
         rows.append({header: row.get(field, "") for field, header in SELLERSPRITE_TABLE_COLUMNS})
     return rows
 
@@ -2228,7 +2231,7 @@ def render_clipboard_bridge():
     )
 
 
-def seller_product_html(product: Product) -> str:
+def seller_product_html(product: Product, display_number: int | None = None) -> str:
     title = escape(product.title)
     asin = escape(product.asin)
     brand = escape(product.brand or "-")
@@ -2251,10 +2254,11 @@ def seller_product_html(product: Product) -> str:
     delivery = product.delivery or product.prime_fba or "0"
     package_weight = _display_dash(product.package_weight_lb, " pounds")
     package_dimensions = _display_dash(product.package_dimensions)
+    row_number = display_number if display_number is not None else product.rank
     return f"""
     <div class="seller-row">
         <div class="seller-main">
-            <div class="seller-rank">{product.rank}</div>
+            <div class="seller-rank">{row_number}</div>
             <div class="seller-product">
                 <div class="seller-image-wrap">
                     <span class="level-corner">{escape(product.potential_level)}</span>
@@ -2987,7 +2991,7 @@ def collect_sellersprite_batch_from_seeds(
     return list(raw_by_asin.values())
 
 
-def render_cards(products):
+def render_cards(products, display_start: int = 0):
     st.markdown("<span class='seller-list-frame seller-table-header-anchor'></span>", unsafe_allow_html=True)
     st.markdown(
         """
@@ -3000,7 +3004,8 @@ def render_cards(products):
         """,
         unsafe_allow_html=True,
     )
-    for product in products:
+    for index, product in enumerate(products, start=1):
+        display_number = display_start + index
         st.markdown("<span class='product-card-select-anchor'></span>", unsafe_allow_html=True)
         product.selected = st.checkbox(
             "Include in export",
@@ -3008,7 +3013,7 @@ def render_cards(products):
             key=f"row_include_{product.asin}",
             label_visibility="collapsed",
         )
-        st.markdown(seller_product_html(product), unsafe_allow_html=True)
+        st.markdown(seller_product_html(product, display_number), unsafe_allow_html=True)
         st.markdown("<div class='seller-row-space'></div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -5424,6 +5429,7 @@ current_result_page = clamp_page(st.session_state.get("result_current_page", 1),
 st.session_state.result_current_page = current_result_page
 st.session_state.result_page_jump = current_result_page
 current_page_products = page_slice(products, current_result_page, current_page_size)
+current_page_display_start = page_start_index(len(products), current_result_page, current_page_size)
 if st.session_state.get("result_view_mode") not in ["列表", "平铺"]:
     st.session_state.result_view_mode = "列表"
 
@@ -5538,14 +5544,14 @@ with tab_cards:
         if result_view_mode == "平铺":
             render_tile_cards(current_page_products)
         else:
-            render_cards(current_page_products)
+            render_cards(current_page_products, current_page_display_start)
         render_result_pagination_controls(len(products), "cards_bottom")
         render_clipboard_bridge()
 
 with tab_table:
     if products:
         st.dataframe(
-            table_rows(current_page_products),
+            table_rows(current_page_products, current_page_display_start),
             use_container_width=True,
             hide_index=True,
         )
