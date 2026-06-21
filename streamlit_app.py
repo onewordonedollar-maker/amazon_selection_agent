@@ -760,6 +760,82 @@ def handle_product_note_change(asin: str, widget_key: str) -> None:
     set_product_note(notes, asin, note)
     save_notes(PRODUCT_NOTES_PATH, notes)
     apply_note_to_loaded_products(asin, note)
+    st.session_state[f"product_note_editing_{asin}"] = False
+
+
+def begin_list_note_edit(asin: str) -> None:
+    note_key = f"product_note_list_{asin}"
+    current_note = st.session_state.get("product_notes", {}).get(asin, "")
+    if not current_note:
+        for state_key in ("products", "raw_products", "collection_staged_raw_products"):
+            for product in st.session_state.get(state_key, []):
+                if getattr(product, "asin", "") == asin:
+                    current_note = getattr(product, "note", "") or ""
+                    break
+            if current_note:
+                break
+    st.session_state[note_key] = current_note
+    st.session_state[f"product_note_editing_{asin}"] = True
+
+
+def render_list_product_favorite_button(product: "Product") -> None:
+    asin = product.asin
+    if not asin:
+        return
+    is_favorite = asin in st.session_state.get("favorite_products", {})
+    active_class = " product-list-favorite-active-anchor" if is_favorite else ""
+    st.markdown(
+        f"<span class='product-list-favorite-anchor{active_class}' data-asin='{escape(asin)}'></span>",
+        unsafe_allow_html=True,
+    )
+    st.button(
+        "♥" if is_favorite else "♡",
+        key=f"favorite_list_{asin}",
+        help="取消收藏" if is_favorite else "收藏",
+        on_click=toggle_product_favorite,
+        args=(product,),
+    )
+
+
+def render_list_product_note_input(product: "Product") -> None:
+    asin = product.asin
+    if not asin:
+        return
+    note_key = f"product_note_list_{asin}"
+    edit_key = f"product_note_editing_{asin}"
+    current_note = st.session_state.get("product_notes", {}).get(asin, product.note or "")
+    if note_key not in st.session_state:
+        st.session_state[note_key] = current_note
+    if st.session_state.get(edit_key):
+        st.markdown(
+            f"<span class='product-list-note-editor-anchor' data-asin='{escape(asin)}'></span>",
+            unsafe_allow_html=True,
+        )
+        with st.form(key=f"product_note_form_{asin}", border=False):
+            st.text_input(
+                "备注",
+                key=note_key,
+                placeholder="备注：未备注",
+                label_visibility="collapsed",
+            )
+            st.form_submit_button(
+                "保存备注",
+                on_click=handle_product_note_change,
+                args=(asin, note_key),
+            )
+        return
+    st.markdown(
+        f"<span class='product-list-note-display-anchor' data-asin='{escape(asin)}'></span>",
+        unsafe_allow_html=True,
+    )
+    note_label = f"备注：{current_note or '未备注'}"
+    st.button(
+        note_label,
+        key=f"product_note_display_{asin}",
+        help="点击编辑备注",
+        on_click=begin_list_note_edit,
+        args=(asin,),
+    )
 
 
 def render_product_annotation_controls(product: "Product", location: str) -> None:
@@ -787,6 +863,71 @@ def render_product_annotation_controls(product: "Product", location: str) -> Non
         label_visibility="collapsed",
         on_change=handle_product_note_change,
         args=(asin, note_key),
+    )
+
+
+def render_list_favorite_portal() -> None:
+    components.html(
+        """
+        <script>
+        window.parent.eval(`
+          (() => {
+            const clickRealControl = (selector) => {
+              const real = document.querySelector(selector);
+              if (real) real.click();
+            };
+            if (!window.__amazonSelectionListProxyBound) {
+              window.__amazonSelectionListProxyBound = true;
+              document.addEventListener('pointerdown', (event) => {
+                const editorAnchor = document.querySelector('.product-list-note-editor-anchor[data-asin]');
+                const asin = editorAnchor?.dataset.asin || '';
+                if (!asin) return;
+                const noteForm = editorAnchor
+                  ?.closest('div[data-testid="stElementContainer"]')
+                  ?.nextElementSibling
+                  ?.querySelector('div[data-testid="stForm"]');
+                const noteInput = noteForm?.querySelector('input');
+                if (!noteInput) return;
+                const clickedInsideEditor = noteForm.contains(event.target);
+                const clickedNoteProxy = event.target.closest('.list-note-proxy[data-asin="' + asin + '"]');
+                if (clickedInsideEditor || clickedNoteProxy) return;
+                const tracker = noteInput._valueTracker;
+                if (tracker) tracker.setValue(String(noteInput.value || '') + '__force_streamlit_sync__');
+                noteInput.dispatchEvent(new Event('input', { bubbles: true }));
+                noteInput.dispatchEvent(new Event('change', { bubbles: true }));
+                noteInput.blur();
+                setTimeout(() => {
+                  noteForm.querySelector('button')?.click();
+                }, 500);
+              }, true);
+              document.addEventListener('click', (event) => {
+                const selectProxy = event.target.closest('.list-select-proxy[data-asin]');
+                if (selectProxy) {
+                  event.preventDefault();
+                  const asin = selectProxy.dataset.asin || '';
+                  clickRealControl('div.st-key-row_include_' + asin + ' input[type="checkbox"]');
+                  return;
+                }
+                const favoriteProxy = event.target.closest('.list-favorite-proxy[data-asin]');
+                if (favoriteProxy) {
+                  event.preventDefault();
+                  const asin = favoriteProxy.dataset.asin || '';
+                  clickRealControl('div.st-key-favorite_list_' + asin + ' button');
+                  return;
+                }
+                const noteProxy = event.target.closest('.list-note-proxy[data-asin]');
+                if (noteProxy) {
+                  event.preventDefault();
+                  const asin = noteProxy.dataset.asin || '';
+                  clickRealControl('div.st-key-product_note_display_' + asin + ' button');
+                }
+              });
+            }
+          })();
+        `);
+        </script>
+        """,
+        height=0,
     )
 
 
@@ -2347,15 +2488,21 @@ def seller_product_html(product: Product, display_number: int | None = None) -> 
     package_dimensions = _display_dash(product.package_dimensions)
     row_number = display_number if display_number is not None else product.rank
     note_preview = escape(product.note or "未备注")
+    select_class = " is-selected" if product.selected else ""
+    favorite_class = " is-favorite" if product.asin in st.session_state.get("favorite_products", {}) else ""
+    favorite_label = "♥" if favorite_class else "♡"
+    note_mode = "edit" if st.session_state.get(f"product_note_editing_{product.asin}") else "display"
     return f"""
     <div class="seller-row">
+        <div class="list-select-host" data-asin="{asin}">
+            <button type="button" class="list-select-proxy{select_class}" data-asin="{asin}" title="选择产品"></button>
+        </div>
         <div class="seller-main">
             <div class="seller-rank">{row_number}</div>
             <div class="seller-product">
                 <div class="seller-image-wrap">
                     <span class="level-corner">{escape(product.potential_level)}</span>
                     <img src="{image_url}" alt="{title}" />
-                    <div class="signal-tags"><span class="tag tag-bs">BS</span><span class="tag tag-ac">AC</span><span class="tag tag-nr">NR</span></div>
                 </div>
                 <div class="seller-info">
                     <div class="seller-title">{title}</div>
@@ -2376,13 +2523,19 @@ def seller_product_html(product: Product, display_number: int | None = None) -> 
             <div class="cell"><strong>{_display_money(product.fba_fee)}</strong><span class="muted">{margin}</span></div>
             <div class="cell"><strong>{escape(str(_display_dash(product.launched_at)))}</strong><span class="muted">-</span></div>
             <div class="cell"><strong>{delivery}</strong><span class="muted">-</span></div>
-            <div class="ops-cell"></div>
+            <div class="ops-cell">
+                <div class="list-favorite-host" data-asin="{asin}">
+                    <button type="button" class="list-favorite-proxy{favorite_class}" data-asin="{asin}" title="收藏">{favorite_label}</button>
+                </div>
+            </div>
         </div>
         <div class="seller-detail">
             <div>浏览同类目: <span class="orange">{escape(bsr_category or category_path)}</span> <span class="pill orange-pill">BS榜单</span> <span class="pill orange-pill">新品榜</span> <span class="pill orange-pill">市场分析</span> <span class="pill orange-pill">找相似</span></div>
             <div>中文类目名: - <span class="rank-pill">#{_display_int(sub_rank) if sub_rank else 1}</span> in {escape(sub_category or leaf_category)}</div>
             <div>LQS: <strong>0</strong>　卖家: <strong>{escape(product.seller_name or '0')}</strong>　BuyBox卖家: <strong>{escape(product.seller_name or '0')}</strong>　商品重量: <strong>{package_weight}</strong>　商品尺寸: <strong>{escape(str(package_dimensions))}</strong>　包装重量: <strong>{package_weight}</strong>　包装尺寸: <strong>{escape(str(package_dimensions))}</strong></div>
-            <div class="seller-note-preview">备注：{note_preview}</div>
+            <div class="seller-note-preview list-note-host list-note-text-button" data-asin="{asin}" data-note-mode="{note_mode}">
+                <button type="button" class="list-note-proxy" data-asin="{asin}" title="点击编辑备注">备注：{note_preview}</button>
+            </div>
         </div>
     </div>
     """
@@ -3122,15 +3275,19 @@ def render_cards(products, display_start: int = 0):
     )
     for index, product in enumerate(products, start=1):
         display_number = display_start + index
-        st.markdown("<span class='product-card-select-anchor'></span>", unsafe_allow_html=True)
+        st.markdown(
+            f"<span class='product-card-select-anchor' data-asin='{escape(product.asin)}'></span>",
+            unsafe_allow_html=True,
+        )
         product.selected = st.checkbox(
             "Include in export",
             value=product.selected,
             key=f"row_include_{product.asin}",
             label_visibility="collapsed",
         )
+        render_list_product_favorite_button(product)
         st.markdown(seller_product_html(product, display_number), unsafe_allow_html=True)
-        render_product_annotation_controls(product, "list")
+        render_list_product_note_input(product)
         st.markdown("<div class='seller-row-space'></div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -3491,7 +3648,8 @@ st.markdown(
         padding: 0 !important;
     }
     div[data-testid="stElementContainer"]:has(.seller-table-header-anchor) + div[data-testid="stLayoutWrapper"],
-    div[data-testid="stElementContainer"]:has(.seller-table-header-anchor) + div[data-testid="stHorizontalBlock"] {
+    div[data-testid="stElementContainer"]:has(.seller-table-header-anchor) + div[data-testid="stHorizontalBlock"],
+    div[data-testid="stElementContainer"]:has(.seller-table-header-anchor) + div[data-testid="stElementContainer"] {
         background: #f6f7f9 !important;
         box-shadow: 0 2px 4px rgba(15, 23, 42, .08);
         margin-top: 0 !important;
@@ -4075,11 +4233,14 @@ st.markdown(
     }
     div[data-testid="stElementContainer"]:has(.product-card-select-anchor) + div[data-testid="stCheckbox"],
     div[data-testid="stElementContainer"]:has(.product-card-select-anchor) + div[data-testid="stElementContainer"]:has(div[data-testid="stCheckbox"]) {
-        margin: 0 0 -32px 10px !important;
-        position: relative !important;
-        transform: translateY(12px);
-        width: 28px !important;
-        z-index: 12 !important;
+        height: 1px !important;
+        margin: 0 !important;
+        opacity: 0 !important;
+        overflow: hidden !important;
+        pointer-events: none !important;
+        position: absolute !important;
+        width: 1px !important;
+        z-index: -1 !important;
     }
     div[data-testid="stElementContainer"]:has(.tile-card-select-anchor) + div[data-testid="stCheckbox"],
     div[data-testid="stElementContainer"]:has(.tile-card-select-anchor) + div[data-testid="stElementContainer"]:has(div[data-testid="stCheckbox"]) {
@@ -4100,6 +4261,40 @@ st.markdown(
     div[data-testid="stElementContainer"]:has(.tile-card-select-anchor) + div[data-testid="stCheckbox"] label > div,
     div[data-testid="stElementContainer"]:has(.tile-card-select-anchor) + div[data-testid="stElementContainer"] div[data-testid="stCheckbox"] label > div {
         margin: 0 !important;
+    }
+    .list-select-host {
+        left: 14px;
+        position: absolute;
+        top: 14px;
+        z-index: 18;
+    }
+    .list-select-proxy {
+        align-items: center;
+        background: #ffffff;
+        border: 1px solid #d8dee8;
+        border-radius: 4px;
+        color: #ffffff;
+        cursor: pointer;
+        display: flex;
+        height: 18px;
+        justify-content: center;
+        padding: 0;
+        transition: background .12s ease, border-color .12s ease, box-shadow .12s ease;
+        width: 18px;
+    }
+    .list-select-proxy.is-selected {
+        background: var(--brand);
+        border-color: var(--brand);
+    }
+    .list-select-proxy.is-selected::after {
+        content: "✓";
+        font-size: 13px;
+        font-weight: 900;
+        line-height: 1;
+    }
+    .list-select-proxy:hover {
+        border-color: var(--brand);
+        box-shadow: 0 0 0 3px var(--brand-soft);
     }
     .tile-image-wrap {
         align-items: center;
@@ -4201,6 +4396,187 @@ st.markdown(
         margin-right: 14px;
         max-width: 860px;
     }
+    div[data-testid="stElementContainer"]:has(.product-list-favorite-anchor),
+    div[data-testid="stElementContainer"]:has(.product-list-note-display-anchor),
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) {
+        display: none;
+    }
+    div[data-testid="stElementContainer"]:has(.product-list-favorite-anchor) + div[data-testid="stButton"],
+    div[data-testid="stElementContainer"]:has(.product-list-favorite-anchor) + div[data-testid="stElementContainer"]:has(div[data-testid="stButton"]) {
+        height: 1px !important;
+        margin: 0 !important;
+        opacity: 0 !important;
+        overflow: hidden !important;
+        pointer-events: none !important;
+        position: absolute !important;
+        width: 1px !important;
+        z-index: -1 !important;
+    }
+    .list-favorite-host {
+        align-items: center;
+        display: flex;
+        justify-content: center;
+        min-height: 34px;
+        width: 100%;
+    }
+    .list-favorite-proxy {
+        background: transparent !important;
+        border: none !important;
+        border-radius: 999px !important;
+        box-shadow: none !important;
+        color: var(--muted-light) !important;
+        cursor: pointer;
+        font-size: 30px !important;
+        font-weight: 700 !important;
+        height: 34px !important;
+        line-height: 1 !important;
+        min-height: 34px !important;
+        min-width: 34px !important;
+        padding: 0 !important;
+        width: 34px !important;
+    }
+    .list-favorite-proxy.is-favorite {
+        background: transparent !important;
+        color: var(--brand) !important;
+    }
+    .list-favorite-proxy:hover {
+        background: var(--brand-soft) !important;
+        color: var(--brand) !important;
+    }
+    div[data-testid="stElementContainer"]:has(.product-list-note-display-anchor) + div[data-testid="stButton"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-display-anchor) + div[data-testid="stElementContainer"]:has(div[data-testid="stButton"]) {
+        height: 1px !important;
+        margin: 0 !important;
+        opacity: 0 !important;
+        overflow: hidden !important;
+        pointer-events: none !important;
+        position: absolute !important;
+        width: 1px !important;
+        z-index: -1 !important;
+    }
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stTextInput"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stElementContainer"]:has(div[data-testid="stTextInput"]),
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stForm"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stElementContainer"]:has(div[data-testid="stForm"]),
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stLayoutWrapper"] {
+        display: block !important;
+        margin: -30px 0 6px 44px !important;
+        max-width: 860px !important;
+        position: relative !important;
+        width: calc(100% - 92px) !important;
+        z-index: 24 !important;
+    }
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stForm"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stElementContainer"] div[data-testid="stForm"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stForm"] {
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        height: 24px !important;
+        min-height: 24px !important;
+        overflow: hidden !important;
+        padding: 0 !important;
+    }
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stTextInput"] + div[data-testid="stButton"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stElementContainer"]:has(div[data-testid="stTextInput"]) + div[data-testid="stElementContainer"]:has(div[data-testid="stButton"]),
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stForm"] div[data-testid="stButton"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stElementContainer"] div[data-testid="stForm"] div[data-testid="stButton"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stForm"] div[data-testid="stButton"] {
+        height: 1px !important;
+        margin: 0 !important;
+        opacity: 0 !important;
+        overflow: hidden !important;
+        pointer-events: none !important;
+        position: absolute !important;
+        width: 1px !important;
+        z-index: -1 !important;
+    }
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stTextInput"] label,
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stElementContainer"] div[data-testid="stTextInput"] label,
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stForm"] label,
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stElementContainer"] div[data-testid="stForm"] label,
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stForm"] label {
+        display: none !important;
+    }
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stTextInput"] [data-testid="stTextInputRootElement"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stTextInput"] [data-baseweb="input"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stTextInput"] [data-baseweb="base-input"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stElementContainer"] div[data-testid="stTextInput"] [data-testid="stTextInputRootElement"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stElementContainer"] div[data-testid="stTextInput"] [data-baseweb="input"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stElementContainer"] div[data-testid="stTextInput"] [data-baseweb="base-input"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stForm"] [data-testid="stTextInputRootElement"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stForm"] [data-baseweb="input"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stForm"] [data-baseweb="base-input"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stElementContainer"] div[data-testid="stForm"] [data-testid="stTextInputRootElement"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stElementContainer"] div[data-testid="stForm"] [data-baseweb="input"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stElementContainer"] div[data-testid="stForm"] [data-baseweb="base-input"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stForm"] [data-testid="stTextInputRootElement"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stForm"] [data-baseweb="input"],
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stForm"] [data-baseweb="base-input"] {
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        height: 24px !important;
+        min-height: 24px !important;
+    }
+    .list-note-host {
+        min-height: 24px;
+        padding: 0 !important;
+    }
+    .list-note-host[data-note-mode="display"] {
+        background: transparent;
+        border: 0;
+        margin-top: 5px;
+    }
+    .list-note-text-button[data-note-mode="display"] {
+        box-shadow: none;
+    }
+    .list-note-host[data-note-mode="edit"] .list-note-proxy {
+        visibility: hidden;
+    }
+    .list-note-proxy {
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        color: #6b7686 !important;
+        cursor: pointer;
+        display: block;
+        font-size: 12px !important;
+        font-weight: 600 !important;
+        min-height: 24px !important;
+        padding: 0 !important;
+        text-align: left !important;
+        width: fit-content !important;
+    }
+    .list-note-proxy:hover {
+        color: var(--brand) !important;
+    }
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stTextInput"] input,
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stElementContainer"] div[data-testid="stTextInput"] input,
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stForm"] input,
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stElementContainer"] div[data-testid="stForm"] input,
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stForm"] input {
+        background: transparent !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        color: #4f5b6b !important;
+        font-size: 12px !important;
+        font-weight: 600 !important;
+        height: 24px !important;
+        line-height: 24px !important;
+        max-height: 24px !important;
+        min-height: 24px !important;
+        padding: 0 !important;
+    }
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stTextInput"] input:focus,
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stElementContainer"] div[data-testid="stTextInput"] input:focus,
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stForm"] input:focus,
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stElementContainer"] div[data-testid="stForm"] input:focus,
+    div[data-testid="stElementContainer"]:has(.product-list-note-editor-anchor) + div[data-testid="stLayoutWrapper"] div[data-testid="stForm"] input:focus {
+        box-shadow: none !important;
+        outline: 0 !important;
+    }
     div[data-testid="stElementContainer"]:has(.product-annotation-anchor) {
         display: none;
     }
@@ -4231,20 +4607,20 @@ st.markdown(
     }
     .seller-product {
         display: grid;
-        grid-template-columns: 88px minmax(0, 1fr);
+        grid-template-columns: 124px minmax(0, 1fr);
         gap: 12px;
         align-items: center;
     }
     .seller-image-wrap {
         position: relative;
-        width: 88px;
-        min-height: 106px;
+        width: 124px;
+        min-height: 136px;
     }
     .seller-image-wrap img {
-        width: 84px;
-        height: 84px;
+        width: 116px;
+        height: 116px;
         object-fit: contain;
-        margin-top: 22px;
+        margin-top: 20px;
     }
     .seller-info {
         min-width: 0;
@@ -4283,11 +4659,13 @@ st.markdown(
         display: block;
     }
     .ops-cell {
+        align-self: center;
         color: #ff7a1a;
         display: grid;
         gap: 7px;
         justify-items: center;
         font-size: 15px;
+        padding-top: 0;
     }
     .seller-detail {
         border-top: 1px solid #eef0f4;
@@ -4370,22 +4748,6 @@ st.markdown(
         font-size: 15px;
         line-height: 1.1;
     }
-    .signal-tags {
-        display: flex;
-        gap: 3px;
-        margin-top: 7px;
-    }
-    .tag {
-        color: #ffffff;
-        border-radius: 4px;
-        padding: 2px 5px;
-        font-weight: 700;
-        font-size: 13px;
-        line-height: 1.2;
-    }
-    .tag-bs { background: #ff8617; }
-    .tag-ac { background: #101827; }
-    .tag-nr { background: #f02816; }
     .product-info {
         min-width: 0;
         padding-top: 44px;
@@ -4513,6 +4875,10 @@ st.markdown(
     [data-testid="stAppViewContainer"] {
         background: var(--app-bg) !important;
         color: var(--ink);
+    }
+    body:not(:has(div[data-testid="stDialog"])) section[data-testid="stMain"] {
+        overflow-x: visible !important;
+        overflow-y: visible !important;
     }
     [data-testid="stHeader"] {
         background: transparent !important;
@@ -4841,7 +5207,8 @@ st.markdown(
         padding: 0 6px !important;
     }
     div[data-testid="stElementContainer"]:has(.seller-table-header-anchor) + div[data-testid="stLayoutWrapper"],
-    div[data-testid="stElementContainer"]:has(.seller-table-header-anchor) + div[data-testid="stHorizontalBlock"] {
+    div[data-testid="stElementContainer"]:has(.seller-table-header-anchor) + div[data-testid="stHorizontalBlock"],
+    div[data-testid="stElementContainer"]:has(.seller-table-header-anchor) + div[data-testid="stElementContainer"] {
         background: #eef1f5 !important;
         border-bottom: 1px solid #dce2ea;
         box-shadow: 0 4px 12px rgba(16, 24, 40, .045);
@@ -5699,6 +6066,7 @@ with tab_cards:
             render_tile_cards(current_page_products)
         else:
             render_cards(current_page_products, current_page_display_start)
+            render_list_favorite_portal()
         render_result_pagination_controls(len(products), "cards_bottom")
         render_clipboard_bridge()
 

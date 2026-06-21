@@ -112,6 +112,9 @@ class StreamlitUiStateTests(unittest.TestCase):
         self.assertNotIn("row_select, row_body", list_renderer)
         self.assertIn("div[data-testid=\"stElementContainer\"]:has(.product-card-select-anchor) + div[data-testid=\"stCheckbox\"]", source)
         self.assertIn("div[data-testid=\"stElementContainer\"]:has(.tile-card-select-anchor) + div[data-testid=\"stCheckbox\"]", source)
+        self.assertIn("list-select-host", source)
+        self.assertIn("list-select-proxy", source)
+        self.assertIn("clickRealControl('div.st-key-row_include_' + asin", source)
         self.assertIn(".seller-list-frame {", source)
         self.assertIn("padding: 0 0 6px;", source)
 
@@ -124,18 +127,146 @@ class StreamlitUiStateTests(unittest.TestCase):
         self.assertIn("FAVORITES_PATH", source)
         self.assertIn("PRODUCT_NOTES_PATH", source)
         self.assertIn("def render_product_annotation_controls", source)
+        self.assertIn("def render_list_product_favorite_button", source)
+        self.assertIn("def render_list_product_note_input", source)
+        self.assertIn("def render_list_favorite_portal", source)
         self.assertIn("toggle_product_favorite", source)
         self.assertIn("handle_product_note_change", source)
-        self.assertIn("render_product_annotation_controls(product", list_renderer)
+        self.assertIn("render_list_product_favorite_button(product)", list_renderer)
+        self.assertIn("render_list_product_note_input(product)", list_renderer)
+        self.assertNotIn("render_product_annotation_controls(product, \"list\")", list_renderer)
         self.assertIn("render_product_annotation_controls(product", tile_renderer)
         self.assertIn("tab_favorites", source)
         self.assertIn('"收藏"', source)
         self.assertIn("render_favorites_panel", source)
         self.assertIn("seller-note-preview", list_html)
+        self.assertIn("list-note-host", list_html)
+        self.assertIn("list-favorite-host", list_html)
+        self.assertIn("product-list-favorite-anchor", source)
+        self.assertIn("product-list-note-display-anchor", source)
+        self.assertIn("render_list_favorite_portal()", source)
+        self.assertNotIn("calc(100% - 54px)", source)
+        self.assertNotIn("margin: -54px", source)
+        self.assertNotIn("transform: translateY(94px)", source)
+        self.assertIn("list-favorite-proxy", source)
+        self.assertIn("list-note-proxy", source)
+        self.assertIn("clickRealControl('div.st-key-favorite_list_' + asin", source)
+        self.assertIn("clickRealControl('div.st-key-product_note_display_' + asin", source)
+        self.assertIn('"♥" if is_favorite else "♡"', source)
+        self.assertIn('favorite_label = "♥" if favorite_class else "♡"', list_html)
+        self.assertNotIn('"★" if is_favorite else "☆"', source)
+        self.assertNotIn('favorite_label = "★" if favorite_class else "☆"', list_html)
         self.assertNotIn("<span>▥</span>", list_html)
         self.assertNotIn("<span>⊙</span>", list_html)
         self.assertNotIn("<span>⊕</span>", list_html)
         self.assertNotIn("<span>▦</span>", list_html)
+
+    def test_list_favorite_uses_theme_color_and_aligns_with_operation_row(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+        favorite_css = source[
+            source.index(".list-favorite-host {"):
+            source.index(
+                "div[data-testid=\"stElementContainer\"]:has(.product-list-note-display-anchor)",
+                source.index(".list-favorite-host {"),
+            )
+        ]
+        ops_css = source[source.index(".ops-cell {"):source.index(".seller-detail {")]
+
+        self.assertIn("align-items: center", favorite_css)
+        self.assertIn("color: var(--muted-light) !important", favorite_css)
+        self.assertIn("color: var(--brand) !important", favorite_css)
+        self.assertIn("font-size: 30px !important", favorite_css)
+        self.assertNotIn("#f2a900", favorite_css)
+        self.assertIn("align-self: center", ops_css)
+
+    def test_list_product_image_has_no_signal_badges_and_uses_larger_square(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+        list_html = source[source.index("def seller_product_html"):source.index("def product_tile_html")]
+        list_image_css = source[
+            source.index(".seller-product {"):
+            source.index(".seller-info {", source.index(".seller-product {"))
+        ]
+
+        self.assertNotIn("signal-tags", source)
+        self.assertNotIn("tag-bs", source)
+        self.assertNotIn("tag-ac", source)
+        self.assertNotIn("tag-nr", source)
+        self.assertNotIn(">BS<", list_html)
+        self.assertNotIn(">AC<", list_html)
+        self.assertNotIn(">NR<", list_html)
+        self.assertIn("grid-template-columns: 124px minmax(0, 1fr)", list_image_css)
+        self.assertIn("width: 116px", list_image_css)
+        self.assertIn("height: 116px", list_image_css)
+        self.assertIn("object-fit: contain", list_image_css)
+
+    def test_list_note_defaults_to_plain_text_and_only_edits_on_demand(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+        edit_helper = source[
+            source.index("def begin_list_note_edit"):
+            source.index("def render_list_product_favorite_button")
+        ]
+        note_renderer = source[
+            source.index("def render_list_product_note_input"):
+            source.index("def render_product_annotation_controls")
+        ]
+        editor_css = source[
+            source.index("div[data-testid=\"stElementContainer\"]:has(.product-list-note-editor-anchor) + div[data-testid=\"stTextInput\"]"):
+            source.index(".list-note-host {")
+        ]
+        editor_input_css = source[
+            source.index("div[data-testid=\"stElementContainer\"]:has(.product-list-note-editor-anchor) + div[data-testid=\"stTextInput\"] input"):
+            source.index("div[data-testid=\"stElementContainer\"]:has(.product-annotation-anchor)")
+        ]
+        editor_shell_css = source[
+            source.index("div[data-testid=\"stElementContainer\"]:has(.product-list-note-editor-anchor) + div[data-testid=\"stTextInput\"] [data-testid=\"stTextInputRootElement\"]"):
+            source.index("div[data-testid=\"stElementContainer\"]:has(.product-list-note-editor-anchor) + div[data-testid=\"stTextInput\"] input")
+        ]
+        note_css = source[
+            source.index(".list-note-host {"):
+            source.index(
+                "div[data-testid=\"stElementContainer\"]:has(.product-annotation-anchor)",
+                source.index(".list-note-host {"),
+            )
+        ]
+
+        self.assertIn("note_key = f\"product_note_list_{asin}\"", edit_helper)
+        self.assertIn("st.session_state[note_key] = current_note", edit_helper)
+        self.assertIn("edit_key = f\"product_note_editing_{asin}\"", note_renderer)
+        self.assertIn("product-list-note-display-anchor", note_renderer)
+        self.assertIn("product-list-note-editor-anchor", note_renderer)
+        self.assertIn("st.button(", note_renderer)
+        self.assertIn("st.form(", note_renderer)
+        self.assertIn("st.text_input(", note_renderer)
+        self.assertIn("product_note_form_{asin}", note_renderer)
+        self.assertIn("st.form_submit_button(", note_renderer)
+        self.assertIn("handle_product_note_change", note_renderer)
+        self.assertIn("pointerdown", source)
+        self.assertIn("noteInput.blur()", source)
+        self.assertIn("_valueTracker", source)
+        self.assertIn("Event('change'", source)
+        self.assertIn("}, 500)", source)
+        self.assertIn("product_note_form_", source)
+        self.assertNotIn("product_note_commit_", source)
+        self.assertNotIn("margin: -48px", editor_css)
+        self.assertIn("min-height: 24px !important", editor_input_css)
+        self.assertIn("[data-testid=\"stTextInputRootElement\"]", editor_shell_css)
+        self.assertIn("height: 24px !important", editor_input_css)
+        self.assertIn("height: 24px !important", editor_shell_css)
+        self.assertIn("background: transparent !important", editor_input_css)
+        self.assertIn("border: 0 !important", editor_input_css)
+        self.assertIn("background: transparent !important", note_css)
+        self.assertIn("border: 0 !important", note_css)
+        self.assertIn('data-note-mode="{note_mode}"', source)
+        self.assertIn(".list-note-host[data-note-mode=\"display\"]", note_css)
+        self.assertIn(".list-note-host[data-note-mode=\"edit\"] .list-note-proxy", note_css)
+        self.assertIn("visibility: hidden", note_css)
+        self.assertIn("background: transparent", note_css)
+        self.assertIn("border: 0", note_css)
+        self.assertIn("list-note-text-button", note_css)
+        self.assertIn(".list-note-proxy", note_css)
+        self.assertIn("text-align: left !important", note_css)
+        self.assertIn("width: fit-content !important", note_css)
+        self.assertNotIn("min-height: 44px", note_css)
 
     def test_result_cards_and_table_use_display_numbers_not_source_rank(self):
         source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
@@ -184,6 +315,19 @@ class StreamlitUiStateTests(unittest.TestCase):
         self.assertIn("cards-toolbar-sort-anchor", result_area)
         self.assertNotIn('"确定"', result_area)
 
+    def test_list_product_header_stays_sticky_for_current_streamlit_container(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+
+        self.assertIn('div[data-testid="stElementContainer"]:has(.seller-table-header-anchor) + div[data-testid="stElementContainer"]', source)
+        direct_header_rule = source[
+            source.index('div[data-testid="stElementContainer"]:has(.seller-table-header-anchor) + div[data-testid="stElementContainer"]'):
+            source.index('div[data-testid="stPopover"] button', source.index('div[data-testid="stElementContainer"]:has(.seller-table-header-anchor) + div[data-testid="stElementContainer"]'))
+        ]
+
+        self.assertIn("position: sticky !important", direct_header_rule)
+        self.assertIn("top: 80px !important", direct_header_rule)
+        self.assertIn("z-index: 79 !important", direct_header_rule)
+
     def test_lazy_export_button_does_not_stack_prepare_and_download(self):
         source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
         helper = source[source.index("def render_lazy_export_button"):source.index("def level_badge")]
@@ -218,6 +362,14 @@ class StreamlitUiStateTests(unittest.TestCase):
         self.assertIn('body:not(:has(div[data-testid="stDialog"])) section[data-testid="stMain"]', source)
         self.assertIn("overflow-y: visible !important", source)
         self.assertIn('body:has(div[data-testid="stDialog"]) [data-testid="stAppViewContainer"]', source)
+
+    def test_final_theme_keeps_stmain_overflow_visible_for_sticky_headers(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+        final_theme = source[source.index("/* Visual refresh: presentation only. Core collection and filtering logic is unchanged. */"):]
+
+        self.assertIn('body:not(:has(div[data-testid="stDialog"])) section[data-testid="stMain"]', final_theme)
+        self.assertIn("overflow-y: visible !important", final_theme)
+        self.assertIn("overflow-x: visible !important", final_theme)
 
 
 if __name__ == "__main__":
