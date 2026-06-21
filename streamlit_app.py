@@ -789,7 +789,7 @@ def render_list_product_favorite_button(product: "Product") -> None:
         unsafe_allow_html=True,
     )
     st.button(
-        "♥" if is_favorite else "♡",
+        "★" if is_favorite else "☆",
         key=f"favorite_list_{asin}",
         help="取消收藏" if is_favorite else "收藏",
         on_click=toggle_product_favorite,
@@ -2490,7 +2490,7 @@ def seller_product_html(product: Product, display_number: int | None = None) -> 
     note_preview = escape(product.note or "未备注")
     select_class = " is-selected" if product.selected else ""
     favorite_class = " is-favorite" if product.asin in st.session_state.get("favorite_products", {}) else ""
-    favorite_label = "♥" if favorite_class else "♡"
+    favorite_label = "★" if favorite_class else "☆"
     note_mode = "edit" if st.session_state.get(f"product_note_editing_{product.asin}") else "display"
     return f"""
     <div class="seller-row">
@@ -2530,7 +2530,7 @@ def seller_product_html(product: Product, display_number: int | None = None) -> 
             </div>
         </div>
         <div class="seller-detail">
-            <div>浏览同类目: <span class="orange">{escape(bsr_category or category_path)}</span> <span class="pill orange-pill">BS榜单</span> <span class="pill orange-pill">新品榜</span> <span class="pill orange-pill">市场分析</span> <span class="pill orange-pill">找相似</span></div>
+            <div>浏览同类目: <span class="orange">{escape(bsr_category or category_path)}</span> <span class="pill orange-pill">BS榜单</span> <span class="pill orange-pill">新品榜</span></div>
             <div>中文类目名: - <span class="rank-pill">#{_display_int(sub_rank) if sub_rank else 1}</span> in {escape(sub_category or leaf_category)}</div>
             <div>LQS: <strong>0</strong>　卖家: <strong>{escape(product.seller_name or '0')}</strong>　BuyBox卖家: <strong>{escape(product.seller_name or '0')}</strong>　商品重量: <strong>{package_weight}</strong>　商品尺寸: <strong>{escape(str(package_dimensions))}</strong>　包装重量: <strong>{package_weight}</strong>　包装尺寸: <strong>{escape(str(package_dimensions))}</strong></div>
             <div class="seller-note-preview list-note-host list-note-text-button" data-asin="{asin}" data-note-mode="{note_mode}">
@@ -3621,10 +3621,12 @@ st.markdown(
         border: 1px solid #d8dee8;
         border-radius: 8px;
         gap: 2px !important;
-        min-width: 92px;
+        min-width: 184px;
         padding: 2px !important;
     }
-    div[data-testid="stElementContainer"]:has(.result-view-toggle-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="column"] {
+    div[data-testid="stElementContainer"]:has(.result-view-toggle-anchor) + div[data-testid="stHorizontalBlock"] > div {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
         padding: 0 !important;
     }
     div[data-testid="stElementContainer"]:has(.result-view-toggle-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
@@ -3635,7 +3637,8 @@ st.markdown(
         font-weight: 700 !important;
         height: 30px !important;
         min-height: 30px !important;
-        padding: 0 6px !important;
+        padding: 0 10px !important;
+        width: 100% !important;
     }
     div[data-testid="stElementContainer"]:has(.toolbar-spacer) {
         display: none;
@@ -4170,6 +4173,7 @@ st.markdown(
         display: grid;
         grid-template-columns: 30px 254px 56px 92px 68px 78px 82px 46px 62px 64px 52px 58px 70px 56px 32px;
         align-items: center;
+        justify-items: center;
         gap: 7px;
         min-width: 1190px;
         width: max(100%, 1190px);
@@ -4184,6 +4188,7 @@ st.markdown(
         padding: 8px 10px;
         position: static;
         box-shadow: none;
+        text-align: center;
     }
     .seller-header span {
         color: #ff7a1a;
@@ -4191,7 +4196,7 @@ st.markdown(
         margin-left: 8px;
     }
     .seller-header > div:nth-child(2) {
-        padding-left: 96px;
+        padding-left: 0;
     }
     .seller-row {
         min-width: 1190px;
@@ -4418,30 +4423,38 @@ st.markdown(
         justify-content: center;
         min-height: 34px;
         width: 100%;
+        line-height: 1;
     }
     .list-favorite-proxy {
+        align-items: center !important;
         background: transparent !important;
         border: none !important;
         border-radius: 999px !important;
         box-shadow: none !important;
         color: var(--muted-light) !important;
         cursor: pointer;
-        font-size: 30px !important;
-        font-weight: 700 !important;
+        display: inline-flex !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 24px !important;
+        font-weight: 800 !important;
         height: 34px !important;
+        justify-content: center !important;
         line-height: 1 !important;
         min-height: 34px !important;
         min-width: 34px !important;
         padding: 0 !important;
+        text-align: center !important;
         width: 34px !important;
     }
     .list-favorite-proxy.is-favorite {
         background: transparent !important;
         color: var(--brand) !important;
+        transform: none !important;
     }
     .list-favorite-proxy:hover {
         background: var(--brand-soft) !important;
         color: var(--brand) !important;
+        transform: scale(1.03);
     }
     div[data-testid="stElementContainer"]:has(.product-list-note-display-anchor) + div[data-testid="stButton"],
     div[data-testid="stElementContainer"]:has(.product-list-note-display-anchor) + div[data-testid="stElementContainer"]:has(div[data-testid="stButton"]) {
@@ -4598,7 +4611,11 @@ st.markdown(
         display: grid;
         grid-template-columns: 30px 254px 56px 92px 68px 78px 82px 46px 62px 64px 52px 58px 70px 56px 32px;
         align-items: center;
+        justify-items: center;
         gap: 7px;
+    }
+    .seller-main > * {
+        justify-self: center;
     }
     .seller-rank {
         color: #a6aeb9;
@@ -4640,6 +4657,10 @@ st.markdown(
         font-size: 12px;
         line-height: 1.55;
         text-align: center;
+    }
+    .cell > * {
+        margin-left: auto;
+        margin-right: auto;
     }
     .cell strong {
         display: block;
@@ -5190,11 +5211,16 @@ st.markdown(
         border: 1px solid var(--line-strong);
         border-radius: 8px;
         gap: 2px !important;
-        min-width: 92px;
+        min-width: 184px;
         padding: 2px !important;
     }
-    div[data-testid="stElementContainer"]:has(.result-view-toggle-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="column"] {
+    div[data-testid="stElementContainer"]:has(.result-view-toggle-anchor) + div[data-testid="stHorizontalBlock"] > div {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
         padding: 0 !important;
+    }
+    div[data-testid="stElementContainer"]:has(.result-view-toggle-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] {
+        width: 100% !important;
     }
     div[data-testid="stElementContainer"]:has(.result-view-toggle-anchor) + div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
         border: 0 !important;
@@ -5204,7 +5230,8 @@ st.markdown(
         font-weight: 700 !important;
         height: 30px !important;
         min-height: 30px !important;
-        padding: 0 6px !important;
+        padding: 0 10px !important;
+        width: 100% !important;
     }
     div[data-testid="stElementContainer"]:has(.seller-table-header-anchor) + div[data-testid="stLayoutWrapper"],
     div[data-testid="stElementContainer"]:has(.seller-table-header-anchor) + div[data-testid="stHorizontalBlock"],
@@ -5218,6 +5245,8 @@ st.markdown(
         background: #eef1f5;
         border-color: #dfe4eb;
         color: #596474;
+        justify-items: center;
+        text-align: center;
     }
     .seller-header span {
         color: var(--brand);
@@ -5226,6 +5255,8 @@ st.markdown(
         border-color: var(--line);
         border-radius: 6px;
         box-shadow: 0 1px 2px rgba(16, 24, 40, .025);
+        padding-left: 14px;
+        padding-right: 14px;
     }
     .seller-row:hover {
         border-color: #c9d1dc;
@@ -5240,6 +5271,7 @@ st.markdown(
     .seller-detail {
         border-top-color: #e9edf2;
         color: var(--muted);
+        margin-left: 0;
     }
     .orange,
     .toolbar-meta strong,
@@ -6035,12 +6067,12 @@ with tab_cards:
         )
         st.markdown("<span class='cards-toolbar-controls-anchor'></span>", unsafe_allow_html=True)
         st.markdown("<span class='cards-toolbar-sort-anchor'></span>", unsafe_allow_html=True)
-        controls_toolbar = st.columns([1.0, 0.64, 0.76, 0.68, 0.72, 3.2], vertical_alignment="center")
+        controls_toolbar = st.columns([1.0, 0.9, 0.76, 0.68, 0.72, 3.2], vertical_alignment="center")
         controls_toolbar[0].markdown(f"<div class='toolbar-meta'>搜索结果数：<strong>{len(products):,}</strong></div>", unsafe_allow_html=True)
         result_view_mode = st.session_state.get("result_view_mode", "列表")
         with controls_toolbar[1]:
             st.markdown("<span class='result-view-toggle-anchor'></span>", unsafe_allow_html=True)
-            view_cols = st.columns(2, gap="small")
+            view_cols = st.columns([1, 1], gap="small")
             view_cols[0].button(
                 "列表",
                 key="result_view_list_button",
