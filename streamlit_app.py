@@ -87,6 +87,7 @@ COLLECTION_RUNNING_FLAG = OUTPUT_DIR / "collection_running.flag"
 FAVORITES_PATH = OUTPUT_DIR / "favorites.json"
 PRODUCT_NOTES_PATH = OUTPUT_DIR / "product_notes.json"
 STOP_COLLECTION_PORT = 8765
+NOTE_SAVE_PORT = 8766
 SELLERSPRITE_PLUGIN_FIELDS_TEXT = "价格、评分、评分数、排名、销量、销售额、FBA费用、毛利率、变体数、卖家数、包装信息"
 SELLERSPRITE_EXPECTED_PRODUCTS_PER_PAGE = 50
 SELLERSPRITE_MIN_PRODUCTS_PER_PAGE = 45
@@ -408,6 +409,27 @@ class StopCollectionHandler(BaseHTTPRequestHandler):
             STOP_COLLECTION_FLAG.write_text("stop", encoding="utf-8")
             self._send(200, "stop requested")
             return
+        if self.path == "/note":
+            origin = self.headers.get("Origin") or ""
+            if origin and origin not in {"http://localhost:8501", "http://127.0.0.1:8501", "null"}:
+                self._send(403, "forbidden")
+                return
+            try:
+                length = int(self.headers.get("Content-Length") or "0")
+                payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+            except (ValueError, json.JSONDecodeError, UnicodeDecodeError):
+                self._send(400, "bad request")
+                return
+            asin = str(payload.get("asin") or "").strip()
+            note = str(payload.get("note") or "").strip()
+            if not asin:
+                self._send(400, "missing asin")
+                return
+            notes = load_notes(PRODUCT_NOTES_PATH)
+            set_product_note(notes, asin, note)
+            save_notes(PRODUCT_NOTES_PATH, notes)
+            self._send(200, "note saved")
+            return
         self._send(404, "not found")
 
     def log_message(self, format, *args):
@@ -418,6 +440,17 @@ class StopCollectionHandler(BaseHTTPRequestHandler):
 def ensure_stop_collection_server() -> bool:
     try:
         server = ThreadingHTTPServer(("127.0.0.1", STOP_COLLECTION_PORT), StopCollectionHandler)
+    except OSError:
+        return False
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return True
+
+
+@st.cache_resource
+def ensure_note_save_server() -> bool:
+    try:
+        server = ThreadingHTTPServer(("127.0.0.1", NOTE_SAVE_PORT), StopCollectionHandler)
     except OSError:
         return False
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -781,6 +814,64 @@ def render_list_product_favorite_button(product: "Product") -> None:
     )
 
 
+def render_list_product_note_input(product: "Product") -> None:
+    asin = product.asin
+    if not asin:
+        return
+    note_key = f"product_note_list_{asin}"
+    if note_key not in st.session_state:
+        st.session_state[note_key] = st.session_state.get("product_notes", {}).get(asin, product.note or "")
+    st.markdown(
+        f"<span class='product-list-note-input-anchor' data-asin='{escape(asin)}'></span>",
+        unsafe_allow_html=True,
+    )
+    st.text_input(
+        "备注",
+        key=note_key,
+        label_visibility="collapsed",
+        on_change=handle_product_note_change,
+        args=(asin, note_key),
+    )
+
+
+def render_tile_product_favorite_button(product: "Product", location: str) -> None:
+    asin = product.asin
+    if not asin:
+        return
+    is_favorite = asin in st.session_state.get("favorite_products", {})
+    st.markdown(
+        f"<span class='product-tile-favorite-anchor' data-asin='{escape(asin)}'></span>",
+        unsafe_allow_html=True,
+    )
+    st.button(
+        "★" if is_favorite else "☆",
+        key=f"favorite_tile_{location}_{asin}",
+        help="取消收藏" if is_favorite else "收藏",
+        on_click=toggle_product_favorite,
+        args=(product,),
+    )
+
+
+def render_tile_product_note_input(product: "Product", location: str) -> None:
+    asin = product.asin
+    if not asin:
+        return
+    note_key = f"product_note_tile_{location}_{asin}"
+    if note_key not in st.session_state:
+        st.session_state[note_key] = st.session_state.get("product_notes", {}).get(asin, product.note or "")
+    st.markdown(
+        f"<span class='product-tile-note-input-anchor' data-asin='{escape(asin)}'></span>",
+        unsafe_allow_html=True,
+    )
+    st.text_input(
+        "备注",
+        key=note_key,
+        label_visibility="collapsed",
+        on_change=handle_product_note_change,
+        args=(asin, note_key),
+    )
+
+
 def render_product_annotation_controls(product: "Product", location: str) -> None:
     asin = product.asin
     if not asin:
@@ -810,6 +901,7 @@ def render_product_annotation_controls(product: "Product", location: str) -> Non
 
 
 def render_list_favorite_portal() -> None:
+    ensure_note_save_server()
     components.html(
         """
         <script>
@@ -819,29 +911,99 @@ def render_list_favorite_portal() -> None:
               const real = document.querySelector(selector);
               if (real) real.click();
             };
-            if (!window.__amazonSelectionListProxyBound) {
-              window.__amazonSelectionListProxyBound = true;
+            if (window.__amazonSelectionListProxyVersion !== 2) {
+              window.__amazonSelectionListProxyVersion = 2;
+              let activeNoteProxy = null;
               document.addEventListener('click', (event) => {
                 const selectProxy = event.target.closest('.list-select-proxy[data-asin]');
                 if (selectProxy) {
+                  if (activeNoteProxy) {
+                    syncListNote(activeNoteProxy);
+                    activeNoteProxy = null;
+                  }
                   event.preventDefault();
                   const asin = selectProxy.dataset.asin || '';
                   clickRealControl('div.st-key-row_include_' + asin + ' input[type="checkbox"]');
                   return;
                 }
-                const favoriteProxy = event.target.closest('.list-favorite-proxy[data-asin]');
+                const favoriteProxy = event.target.closest('.list-favorite-proxy[data-asin], .tile-favorite-proxy[data-asin]');
                 if (favoriteProxy) {
+                  if (activeNoteProxy) {
+                    syncListNote(activeNoteProxy);
+                    activeNoteProxy = null;
+                  }
                   event.preventDefault();
                   const asin = favoriteProxy.dataset.asin || '';
-                  clickRealControl('div.st-key-favorite_list_' + asin + ' button');
+                  const favoriteKey = favoriteProxy.dataset.favoriteKey || ('favorite_list_' + asin);
+                  clickRealControl('div.st-key-' + favoriteKey + ' button');
                   return;
                 }
+                const noteProxy = event.target.closest('.list-note-proxy[data-asin], .tile-note-proxy[data-asin]');
+                if (noteProxy) {
+                  if (activeNoteProxy && activeNoteProxy !== noteProxy) syncListNote(activeNoteProxy);
+                  activeNoteProxy = noteProxy;
+                  event.preventDefault();
+                  noteProxy.contentEditable = 'true';
+                  noteProxy.classList.add('is-editing');
+                  noteProxy.focus();
+                  const selection = window.getSelection();
+                  const range = document.createRange();
+                  range.selectNodeContents(noteProxy);
+                  range.collapse(false);
+                  selection.removeAllRanges();
+                  selection.addRange(range);
+                  return;
+                }
+                if (activeNoteProxy) {
+                  syncListNote(activeNoteProxy);
+                  activeNoteProxy = null;
+                }
               });
+              const syncListNote = (noteProxy) => {
+                const asin = noteProxy.dataset.asin || '';
+                const noteKey = noteProxy.dataset.noteKey || ('product_note_list_' + asin);
+                const input = document.querySelector('div.st-key-' + noteKey + ' input');
+                if (!input) return;
+                const prefix = '备注：';
+                let value = (noteProxy.textContent || '').trim();
+                if (value.startsWith(prefix)) value = value.slice(prefix.length).trim();
+                if (value === '未备注') value = '';
+                const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                setter.call(input, value);
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+                fetch('http://127.0.0.1:__NOTE_SAVE_PORT__/note', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ asin, note: value })
+                }).catch(() => {});
+                noteProxy.contentEditable = 'false';
+                noteProxy.classList.remove('is-editing');
+                noteProxy.textContent = prefix + (value || '未备注');
+                noteProxy.dataset.noteValue = value;
+                noteProxy.title = value || '未备注';
+              };
+              document.addEventListener('blur', (event) => {
+                const noteProxy = event.target.closest && event.target.closest('.list-note-proxy[data-asin], .tile-note-proxy[data-asin]');
+                if (noteProxy) {
+                  syncListNote(noteProxy);
+                  if (activeNoteProxy === noteProxy) activeNoteProxy = null;
+                }
+              }, true);
+              document.addEventListener('keydown', (event) => {
+                const noteProxy = event.target.closest && event.target.closest('.list-note-proxy[data-asin], .tile-note-proxy[data-asin]');
+                if (!noteProxy) return;
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  syncListNote(noteProxy);
+                  noteProxy.blur();
+                }
+              }, true);
             }
           })();
         `);
         </script>
-        """,
+        """.replace("__NOTE_SAVE_PORT__", str(NOTE_SAVE_PORT)),
         height=0,
     )
 
@@ -2405,6 +2567,7 @@ def seller_product_html(product: Product, display_number: int | None = None) -> 
     select_class = " is-selected" if product.selected else ""
     favorite_class = " is-favorite" if product.asin in st.session_state.get("favorite_products", {}) else ""
     favorite_label = "★" if favorite_class else "☆"
+    note_preview = escape(product.note or "未备注")
     return f"""
     <div class="seller-row">
         <div class="list-select-host" data-asin="{asin}">
@@ -2443,7 +2606,7 @@ def seller_product_html(product: Product, display_number: int | None = None) -> 
             </div>
         </div>
         <div class="seller-detail">
-            <div class="seller-detail-topline">浏览同类目: <span class="orange">{escape(bsr_category or category_path)}</span> <span class="pill orange-pill">BS榜单</span> <span class="pill orange-pill">新品榜</span></div>
+            <div class="seller-detail-topline">浏览同类目: <span class="orange">{escape(bsr_category or category_path)}</span> <span class="pill orange-pill">BS榜单</span> <span class="pill orange-pill">新品榜</span><span class="list-note-host"><span class="list-note-proxy" data-asin="{asin}" data-note-value="{note_preview}" contenteditable="false" role="button" tabindex="0">备注：{note_preview}</span></span></div>
             <div class="seller-detail-subline">中文类目名: - <span class="rank-pill">#{_display_int(sub_rank) if sub_rank else 1}</span> in {escape(sub_category or leaf_category)}</div>
             <div class="seller-detail-subline">LQS: <strong>0</strong>　卖家: <strong>{escape(product.seller_name or '0')}</strong>　BuyBox卖家: <strong>{escape(product.seller_name or '0')}</strong>　商品重量: <strong>{package_weight}</strong>　商品尺寸: <strong>{escape(str(package_dimensions))}</strong>　包装重量: <strong>{package_weight}</strong>　包装尺寸: <strong>{escape(str(package_dimensions))}</strong></div>
         </div>
@@ -2451,7 +2614,7 @@ def seller_product_html(product: Product, display_number: int | None = None) -> 
     """
 
 
-def product_tile_html(product: Product) -> str:
+def product_tile_html(product: Product, annotation_scope: str = "tile") -> str:
     title = escape(product.title)
     asin = escape(product.asin)
     brand = escape(product.brand or "-")
@@ -2474,8 +2637,16 @@ def product_tile_html(product: Product) -> str:
     rating_review_label = f"{rating}/{review_count}"
     launched_at = escape(str(_display_dash(product.launched_at)))
     note_preview = escape(product.note or "未备注")
+    favorite_key = f"favorite_tile_{annotation_scope}_{product.asin}"
+    note_key = f"product_note_tile_{annotation_scope}_{product.asin}"
+    is_favorite = product.asin in st.session_state.get("favorite_products", {})
+    favorite_class = " is-favorite" if is_favorite else ""
+    favorite_label = "★" if is_favorite else "☆"
     return f"""
     <div class="tile-card">
+        <div class="tile-favorite-host" data-asin="{asin}">
+            <button type="button" class="tile-favorite-proxy{favorite_class}" data-asin="{asin}" data-favorite-key="{favorite_key}" title="收藏">{favorite_label}</button>
+        </div>
         <div class="tile-image-wrap">
             <img src="{image_url}" alt="{title}" />
         </div>
@@ -2496,7 +2667,9 @@ def product_tile_html(product: Product) -> str:
             <div>评分/评分数: <strong>{rating_review_label}</strong></div>
             <div class="tile-wide">上架时间: <strong>{launched_at}</strong></div>
         </div>
-        <div class="tile-note-preview">备注：{note_preview}</div>
+        <div class="tile-note-host">
+            <span class="tile-note-proxy" data-asin="{asin}" data-note-key="{note_key}" data-note-value="{note_preview}" contenteditable="false" role="button" tabindex="0" title="{note_preview}">备注：{note_preview}</span>
+        </div>
     </div>
     """
 
@@ -2514,8 +2687,9 @@ def render_tile_cards(products):
                     value=product.selected,
                     label_visibility="collapsed",
                 )
-                st.markdown(product_tile_html(product), unsafe_allow_html=True)
-                render_product_annotation_controls(product, "tile")
+                render_tile_product_favorite_button(product, "tile")
+                render_tile_product_note_input(product, "tile")
+                st.markdown(product_tile_html(product, "tile"), unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -2535,8 +2709,10 @@ def render_favorites_panel() -> None:
         columns = st.columns(4, gap="medium")
         for column, product in zip(columns, favorite_products[start:start + 4]):
             with column:
-                st.markdown(product_tile_html(product), unsafe_allow_html=True)
-                render_product_annotation_controls(product, "favorite")
+                render_tile_product_favorite_button(product, "favorite")
+                render_tile_product_note_input(product, "favorite")
+                st.markdown(product_tile_html(product, "favorite"), unsafe_allow_html=True)
+    render_list_favorite_portal()
 
 
 def collect_sellersprite_products(list_type, filters, category_path: str = "") -> list[Product]:
@@ -3196,6 +3372,7 @@ def render_cards(products, display_start: int = 0):
             label_visibility="collapsed",
         )
         render_list_product_favorite_button(product)
+        render_list_product_note_input(product)
         st.markdown(seller_product_html(product, display_number), unsafe_allow_html=True)
         st.markdown("<div class='seller-row-space'></div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
@@ -4141,6 +4318,41 @@ st.markdown(
         box-shadow: 0 8px 18px rgba(15, 23, 42, .07);
         transform: translateY(-1px);
     }
+    .tile-favorite-host {
+        position: absolute;
+        right: 12px;
+        top: 10px;
+        z-index: 16;
+    }
+    .tile-favorite-proxy {
+        align-items: center !important;
+        background: rgba(255, 255, 255, .94) !important;
+        border: 1px solid #e1e7ef !important;
+        border-radius: 999px !important;
+        box-shadow: 0 3px 10px rgba(15, 23, 42, .08) !important;
+        color: var(--muted-light) !important;
+        cursor: pointer;
+        display: inline-flex !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 26px !important;
+        font-weight: 800 !important;
+        height: 36px !important;
+        justify-content: center !important;
+        line-height: 1 !important;
+        padding: 0 0 2px !important;
+        transition: color .12s ease, border-color .12s ease, box-shadow .12s ease, transform .12s ease;
+        width: 36px !important;
+    }
+    .tile-favorite-proxy.is-favorite {
+        border-color: var(--brand) !important;
+        color: var(--brand) !important;
+    }
+    .tile-favorite-proxy:hover {
+        border-color: var(--brand) !important;
+        box-shadow: 0 0 0 3px var(--brand-soft), 0 5px 14px rgba(255, 75, 80, .13) !important;
+        color: var(--brand) !important;
+        transform: scale(1.03);
+    }
     div[data-testid="stElementContainer"]:has(.product-card-select-anchor),
     div[data-testid="stElementContainer"]:has(.tile-card-select-anchor) {
         display: none;
@@ -4292,24 +4504,79 @@ st.markdown(
     .tile-stats .tile-wide {
         grid-column: 1 / -1;
     }
+    .tile-note-host {
+        margin-top: 8px;
+    }
     .tile-note-preview,
     .seller-note-preview {
         background: #f7f9fc;
         border: 1px solid #edf1f6;
         border-radius: 5px;
         color: #5f6875;
+        cursor: text;
+        display: -webkit-box;
         font-size: 12px;
         line-height: 1.45;
-        margin-top: 8px;
+        max-height: 72px;
         overflow: hidden;
         padding: 6px 8px;
         text-overflow: ellipsis;
-        white-space: nowrap;
+        width: 100%;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 1;
+    }
+    .tile-note-proxy {
+        background: #f7f9fc;
+        border: 1px solid #edf1f6;
+        border-radius: 5px;
+        color: #5f6875;
+        cursor: text;
+        display: -webkit-box;
+        font-size: 12px;
+        line-height: 1.45;
+        max-height: 72px;
+        overflow: hidden;
+        padding: 6px 8px;
+        text-overflow: ellipsis;
+        width: 100%;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 1;
+    }
+    .tile-note-proxy:hover,
+    .tile-note-proxy:focus,
+    .tile-note-proxy.is-editing {
+        background: #fff7ec;
+        border-color: var(--brand);
+        color: var(--text);
+        outline: none;
+    }
+    .tile-note-proxy.is-editing,
+    .tile-note-proxy[contenteditable="true"] {
+        display: block;
+        overflow-y: auto;
+        text-overflow: clip;
+        white-space: normal;
+        -webkit-line-clamp: unset;
     }
     .seller-note-preview {
         margin-right: 14px;
         max-width: 860px;
         width: fit-content;
+    }
+    div[data-testid="stElementContainer"]:has(.product-tile-favorite-anchor) {
+        display: none;
+    }
+    div[data-testid="stElementContainer"]:has(.product-tile-favorite-anchor) + div[data-testid="stButton"],
+    div[data-testid="stElementContainer"]:has(.product-tile-favorite-anchor) + div[data-testid="stElementContainer"]:has(div[data-testid="stButton"]),
+    div[class*="st-key-favorite_tile_"] {
+        height: 1px !important;
+        margin: 0 !important;
+        opacity: 0 !important;
+        overflow: hidden !important;
+        pointer-events: none !important;
+        position: absolute !important;
+        width: 1px !important;
+        z-index: -1 !important;
     }
     div[data-testid="stElementContainer"]:has(.product-list-favorite-anchor) {
         display: none;
@@ -4363,6 +4630,93 @@ st.markdown(
         background: var(--brand-soft) !important;
         color: var(--brand) !important;
         transform: scale(1.03);
+    }
+    div[data-testid="stElementContainer"]:has(.product-list-note-input-anchor) {
+        display: none;
+    }
+    div[data-testid="stElementContainer"]:has(.product-list-note-input-anchor) + div[data-testid="stTextInput"] {
+        height: 1px !important;
+        margin: 0 !important;
+        opacity: 0 !important;
+        overflow: hidden !important;
+        pointer-events: none !important;
+        position: absolute !important;
+        width: 1px !important;
+        z-index: -1 !important;
+    }
+    div[class*="st-key-product_note_list_"] {
+        height: 1px !important;
+        margin: 0 !important;
+        opacity: 0 !important;
+        overflow: hidden !important;
+        pointer-events: none !important;
+        position: absolute !important;
+        width: 1px !important;
+        z-index: -1 !important;
+    }
+    div[data-testid="stElementContainer"]:has(.product-list-note-input-anchor) + div[data-testid="stTextInput"] input {
+        height: 1px !important;
+        min-height: 1px !important;
+        width: 1px !important;
+    }
+    div[class*="st-key-product_note_list_"] input {
+        height: 1px !important;
+        min-height: 1px !important;
+        width: 1px !important;
+    }
+    div[data-testid="stElementContainer"]:has(.product-tile-note-input-anchor) {
+        display: none;
+    }
+    div[data-testid="stElementContainer"]:has(.product-tile-note-input-anchor) + div[data-testid="stTextInput"],
+    div[class*="st-key-product_note_tile_"] {
+        height: 1px !important;
+        margin: 0 !important;
+        opacity: 0 !important;
+        overflow: hidden !important;
+        pointer-events: none !important;
+        position: absolute !important;
+        width: 1px !important;
+        z-index: -1 !important;
+    }
+    div[data-testid="stElementContainer"]:has(.product-tile-note-input-anchor) + div[data-testid="stTextInput"] input,
+    div[class*="st-key-product_note_tile_"] input {
+        height: 1px !important;
+        min-height: 1px !important;
+        width: 1px !important;
+    }
+    .list-note-host {
+        background: transparent !important;
+        border: 0 !important;
+        display: inline-flex;
+        margin-left: 10px;
+        max-width: 260px;
+        min-width: 56px;
+        vertical-align: middle;
+    }
+    .list-note-proxy {
+        background: transparent !important;
+        border: 0 !important;
+        border-radius: 4px;
+        color: #7a828e;
+        cursor: text;
+        display: inline-block;
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1.45;
+        max-width: 260px;
+        min-height: 20px;
+        outline: none;
+        overflow: hidden;
+        padding: 1px 3px;
+        text-align: left !important;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        width: fit-content !important;
+    }
+    .list-note-proxy:hover,
+    .list-note-proxy:focus {
+        background: #fff7ec !important;
+        color: var(--text);
     }
     div[data-testid="stElementContainer"]:has(.product-annotation-anchor) {
         display: none;
@@ -5870,6 +6224,7 @@ with tab_cards:
         st.markdown("<div class='toolbar-spacer'></div>", unsafe_allow_html=True)
         if result_view_mode == "平铺":
             render_tile_cards(current_page_products)
+            render_list_favorite_portal()
         else:
             render_cards(current_page_products, current_page_display_start)
             render_list_favorite_portal()

@@ -37,9 +37,9 @@ class StreamlitUiStateTests(unittest.TestCase):
 
         self.assertIn("result_export_scope", source)
         self.assertIn("export_products_for_scope", source)
-        self.assertIn('"已勾选"', source)
-        self.assertIn('"当前页"', source)
-        self.assertIn('"全部筛选结果"', source)
+        self.assertIn('"导出已勾选"', source)
+        self.assertIn('"导出当前页"', source)
+        self.assertIn('"导出全部结果"', source)
 
     def test_bulk_select_all_results_does_not_write_every_product_widget_key(self):
         source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
@@ -101,6 +101,34 @@ class StreamlitUiStateTests(unittest.TestCase):
         self.assertNotIn("level-corner", tile_html)
         self.assertNotIn("tag tag-", tile_html)
 
+    def test_tile_cards_use_inline_favorite_and_note_without_bottom_controls(self):
+        source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+        tile_html = source[source.index("def product_tile_html"):source.index("def render_tile_cards")]
+        tile_renderer = source[source.index("def render_tile_cards"):source.index("def render_favorites_panel")]
+        favorites_renderer = source[source.index("def render_favorites_panel"):source.index("def collect_sellersprite_products")]
+        tile_css = source[source.index(".tile-card {"):source.index("div[data-testid=\"stElementContainer\"]:has(.product-card-select-anchor)")]
+
+        self.assertIn("def render_tile_product_favorite_button", source)
+        self.assertIn("def render_tile_product_note_input", source)
+        self.assertIn("render_tile_product_favorite_button(product, \"tile\")", tile_renderer)
+        self.assertIn("render_tile_product_note_input(product, \"tile\")", tile_renderer)
+        self.assertIn("render_tile_product_favorite_button(product, \"favorite\")", favorites_renderer)
+        self.assertIn("render_tile_product_note_input(product, \"favorite\")", favorites_renderer)
+        self.assertNotIn("render_product_annotation_controls(product, \"tile\")", tile_renderer)
+        self.assertNotIn("render_product_annotation_controls(product, \"favorite\")", favorites_renderer)
+        self.assertIn("tile-favorite-host", tile_html)
+        self.assertIn("tile-favorite-proxy", tile_html)
+        self.assertIn("tile-note-host", tile_html)
+        self.assertIn("tile-note-proxy", tile_html)
+        self.assertIn("data-favorite-key", tile_html)
+        self.assertIn("data-note-key", tile_html)
+        self.assertIn(".tile-favorite-host {", source)
+        self.assertIn(".tile-note-proxy {", source)
+        self.assertIn("-webkit-line-clamp: 1", source)
+        self.assertIn("max-height: 72px", source)
+        self.assertIn("overflow-y: auto", source)
+        self.assertIn("min-height: 510px", tile_css)
+
     def test_product_selection_checkbox_is_inside_list_and_tile_cards(self):
         source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
         list_renderer = source[source.index("def render_cards"):source.index("def set_result_page")]
@@ -129,44 +157,48 @@ class StreamlitUiStateTests(unittest.TestCase):
         self.assertIn("def render_product_annotation_controls", source)
         self.assertIn("def render_list_product_favorite_button", source)
         self.assertIn("def render_list_product_note_input", source)
+        self.assertIn("def render_tile_product_favorite_button", source)
+        self.assertIn("def render_tile_product_note_input", source)
         self.assertIn("def render_list_favorite_portal", source)
         self.assertIn("toggle_product_favorite", source)
         self.assertIn("handle_product_note_change", source)
         self.assertIn("render_list_product_favorite_button(product)", list_renderer)
         self.assertIn("render_list_product_note_input(product)", list_renderer)
         self.assertNotIn("render_product_annotation_controls(product, \"list\")", list_renderer)
-        self.assertIn("render_product_annotation_controls(product", tile_renderer)
+        self.assertIn("render_tile_product_favorite_button(product", tile_renderer)
+        self.assertIn("render_tile_product_note_input(product", tile_renderer)
+        self.assertNotIn("render_product_annotation_controls(product", tile_renderer)
         self.assertIn("tab_favorites", source)
-        self.assertIn('"收藏"', source)
         self.assertIn("render_favorites_panel", source)
-        self.assertIn("seller-note-preview", list_html)
         self.assertIn("list-note-host", list_html)
+        self.assertIn("list-note-proxy", list_html)
+        self.assertIn("data-note-value", list_html)
         self.assertIn("list-favorite-host", list_html)
         self.assertIn("product-list-favorite-anchor", source)
-        self.assertIn("product-list-note-display-anchor", source)
+        self.assertIn("product-list-note-input-anchor", source)
         self.assertIn("render_list_favorite_portal()", source)
         self.assertNotIn("calc(100% - 54px)", source)
         self.assertNotIn("margin: -54px", source)
         self.assertNotIn("transform: translateY(94px)", source)
         self.assertIn("list-favorite-proxy", source)
         self.assertIn("list-note-proxy", source)
-        self.assertIn("clickRealControl('div.st-key-favorite_list_' + asin", source)
-        self.assertIn("clickRealControl('div.st-key-product_note_display_' + asin", source)
-        self.assertIn('"♥" if is_favorite else "♡"', source)
-        self.assertIn('favorite_label = "♥" if favorite_class else "♡"', list_html)
-        self.assertNotIn('"★" if is_favorite else "☆"', source)
-        self.assertNotIn('favorite_label = "★" if favorite_class else "☆"', list_html)
-        self.assertNotIn("<span>▥</span>", list_html)
-        self.assertNotIn("<span>⊙</span>", list_html)
-        self.assertNotIn("<span>⊕</span>", list_html)
-        self.assertNotIn("<span>▦</span>", list_html)
+        self.assertIn("const favoriteKey = favoriteProxy.dataset.favoriteKey || ('favorite_list_' + asin)", source)
+        self.assertIn("clickRealControl('div.st-key-' + favoriteKey + ' button')", source)
+        self.assertIn("syncListNote", source)
+        self.assertIn('if self.path == "/note"', source)
+        self.assertIn("save_notes(PRODUCT_NOTES_PATH, notes)", source)
+        self.assertIn("NOTE_SAVE_PORT = 8766", source)
+        self.assertIn("ensure_note_save_server()", source)
+        self.assertIn("fetch('http://127.0.0.1:__NOTE_SAVE_PORT__/note'", source)
+        self.assertIn('"★" if is_favorite else "☆"', source)
+        self.assertIn('favorite_label = "★" if favorite_class else "☆"', list_html)
 
     def test_list_favorite_uses_theme_color_and_aligns_with_operation_row(self):
         source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
         favorite_css = source[
             source.index(".list-favorite-host {"):
             source.index(
-                "div[data-testid=\"stElementContainer\"]:has(.product-list-note-display-anchor)",
+                "div[data-testid=\"stElementContainer\"]:has(.product-list-note-input-anchor)",
                 source.index(".list-favorite-host {"),
             )
         ]
@@ -175,7 +207,7 @@ class StreamlitUiStateTests(unittest.TestCase):
         self.assertIn("align-items: center", favorite_css)
         self.assertIn("color: var(--muted-light) !important", favorite_css)
         self.assertIn("color: var(--brand) !important", favorite_css)
-        self.assertIn("font-size: 30px !important", favorite_css)
+        self.assertIn("font-size: 24px !important", favorite_css)
         self.assertNotIn("#f2a900", favorite_css)
         self.assertIn("align-self: center", ops_css)
 
@@ -201,25 +233,17 @@ class StreamlitUiStateTests(unittest.TestCase):
 
     def test_list_note_defaults_to_plain_text_and_only_edits_on_demand(self):
         source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
-        edit_helper = source[
-            source.index("def begin_list_note_edit"):
-            source.index("def render_list_product_favorite_button")
-        ]
         note_renderer = source[
             source.index("def render_list_product_note_input"):
             source.index("def render_product_annotation_controls")
         ]
         editor_css = source[
-            source.index("div[data-testid=\"stElementContainer\"]:has(.product-list-note-editor-anchor) + div[data-testid=\"stTextInput\"]"):
+            source.index("div[data-testid=\"stElementContainer\"]:has(.product-list-note-input-anchor) + div[data-testid=\"stTextInput\"]"):
             source.index(".list-note-host {")
         ]
         editor_input_css = source[
-            source.index("div[data-testid=\"stElementContainer\"]:has(.product-list-note-editor-anchor) + div[data-testid=\"stTextInput\"] input"):
+            source.index("div[data-testid=\"stElementContainer\"]:has(.product-list-note-input-anchor) + div[data-testid=\"stTextInput\"] input"):
             source.index("div[data-testid=\"stElementContainer\"]:has(.product-annotation-anchor)")
-        ]
-        editor_shell_css = source[
-            source.index("div[data-testid=\"stElementContainer\"]:has(.product-list-note-editor-anchor) + div[data-testid=\"stTextInput\"] [data-testid=\"stTextInputRootElement\"]"):
-            source.index("div[data-testid=\"stElementContainer\"]:has(.product-list-note-editor-anchor) + div[data-testid=\"stTextInput\"] input")
         ]
         note_css = source[
             source.index(".list-note-host {"):
@@ -229,40 +253,24 @@ class StreamlitUiStateTests(unittest.TestCase):
             )
         ]
 
-        self.assertIn("note_key = f\"product_note_list_{asin}\"", edit_helper)
-        self.assertIn("st.session_state[note_key] = current_note", edit_helper)
-        self.assertIn("edit_key = f\"product_note_editing_{asin}\"", note_renderer)
-        self.assertIn("product-list-note-display-anchor", note_renderer)
-        self.assertIn("product-list-note-editor-anchor", note_renderer)
-        self.assertIn("st.button(", note_renderer)
-        self.assertIn("st.form(", note_renderer)
+        self.assertIn("note_key = f\"product_note_list_{asin}\"", note_renderer)
+        self.assertIn("product-list-note-input-anchor", note_renderer)
         self.assertIn("st.text_input(", note_renderer)
-        self.assertIn("product_note_form_{asin}", note_renderer)
-        self.assertIn("st.form_submit_button(", note_renderer)
         self.assertIn("handle_product_note_change", note_renderer)
-        self.assertIn("pointerdown", source)
-        self.assertIn("noteInput.blur()", source)
-        self.assertIn("_valueTracker", source)
-        self.assertIn("Event('change'", source)
-        self.assertIn("}, 500)", source)
-        self.assertIn("product_note_form_", source)
+        self.assertIn("contenteditable", source)
+        self.assertIn("blur", source)
+        self.assertIn("input.dispatchEvent(new Event('input'", source)
+        self.assertIn("input.dispatchEvent(new Event('change'", source)
+        self.assertNotIn("st.form(", note_renderer)
+        self.assertNotIn("st.form_submit_button(", note_renderer)
+        self.assertNotIn("product_note_form_", source)
         self.assertNotIn("product_note_commit_", source)
-        self.assertNotIn("margin: -48px", editor_css)
-        self.assertIn("min-height: 24px !important", editor_input_css)
-        self.assertIn("[data-testid=\"stTextInputRootElement\"]", editor_shell_css)
-        self.assertIn("height: 24px !important", editor_input_css)
-        self.assertIn("height: 24px !important", editor_shell_css)
-        self.assertIn("background: transparent !important", editor_input_css)
-        self.assertIn("border: 0 !important", editor_input_css)
+        self.assertIn("position: absolute !important", editor_css)
+        self.assertIn("opacity: 0 !important", editor_css)
+        self.assertIn("width: 1px !important", editor_input_css)
+        self.assertIn("height: 1px !important", editor_input_css)
         self.assertIn("background: transparent !important", note_css)
         self.assertIn("border: 0 !important", note_css)
-        self.assertIn('data-note-mode="{note_mode}"', source)
-        self.assertIn(".list-note-host[data-note-mode=\"display\"]", note_css)
-        self.assertIn(".list-note-host[data-note-mode=\"edit\"] .list-note-proxy", note_css)
-        self.assertIn("visibility: hidden", note_css)
-        self.assertIn("background: transparent", note_css)
-        self.assertIn("border: 0", note_css)
-        self.assertIn("list-note-text-button", note_css)
         self.assertIn(".list-note-proxy", note_css)
         self.assertIn("text-align: left !important", note_css)
         self.assertIn("width: fit-content !important", note_css)
